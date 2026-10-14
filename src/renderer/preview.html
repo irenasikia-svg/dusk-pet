@@ -17,7 +17,12 @@
   const items = location.search.includes('anims')
     ? ['Relax', 'Interact', 'Move', 'Sit', 'Sleep', 'Special'].map((a) => [`?anim=${a}`, a])
     : [['?state=normal', '常态'], ['?state=working', '处理中'], ['?state=sleep', '一段时间不操作'], ['?state=waiting', '等你确认'], ['?state=done', '完成'], ['?state=catch', '拖文件经过']];
-  document.getElementById('g').innerHTML = items.map(([q, t]) => `<figure><iframe src="pet.html${q}"></iframe><figcaption>${t}</figcaption></figure>`).join('');
+  // ?char=shu 预览指定角色；?w=160 调整每格宽度
+  const qs = new URLSearchParams(location.search);
+  const extra = qs.get('char') ? `&char=${qs.get('char')}` : '';
+  const w = qs.get('w') || 240;
+  document.getElementById('g').style.gridTemplateColumns = `repeat(3, ${+w + 10}px)`;
+  document.getElementById('g').innerHTML = items.map(([q, t]) => `<figure><iframe style="width:${w}px;height:250px" src="pet.html${q}${extra}"></iframe><figcaption>${t}</figcaption></figure>`).join('');
 </script>
 </body>
 </html>

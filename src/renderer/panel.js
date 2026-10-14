@@ -109,6 +109,10 @@ function renderProcs(procs, app) {
 }
 
 function render(d) {
+  if (d.character) {
+    $('seal').textContent = d.character.seal;
+    $('title').textContent = `${d.character.name} · 工作台`;
+  }
   const busy = d.sessions.filter((s) => s.status === 'working').length;
   const wait = d.sessions.filter((s) => s.status === 'waiting').length;
   $('state-line').textContent = `${PET_STATE[d.state] || ''}${busy ? ` · ${busy} 个在忙` : ''}${wait ? ` · ${wait} 个等你` : ''}`;

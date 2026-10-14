@@ -6,15 +6,21 @@ const { app, BrowserWindow, ipcMain, screen, Menu, Tray, nativeImage, powerMonit
 const { Monitor } = require('./monitor');
 const actions = require('./actions');
 const hooks = require('../scripts/hooks');
+const { CHARACTERS, byKey } = require('./characters');
 
 const DATA_DIR = path.join(os.homedir(), '.claude', 'dusk-pet');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
-const PET_W = 120;   // 基础尺寸（倍率 1）
+const PET_W = 120;   // 基础尺寸（倍率 1，按夕的取景）
 const PET_H = 125;
+// 所有基建小人用同一个「像素/模型单位」：夕的取景高 438 单位 ↔ 125 像素。
+// 带高装饰的角色窗口会更高，而不是把人缩小。
+const REF_UNITS = 438;
+const DEFAULT_FRAME = { w: 428, h: 438 };
 const AGENT_LABEL = 'local.dusk-pet';
 const AGENT_FILE = path.join(os.homedir(), 'Library', 'LaunchAgents', `${AGENT_LABEL}.plist`);
 
 const DEFAULTS = {
+  character: 'dusk',
   scale: 1,
   alwaysOnTop: true,
   autoStart: true,
@@ -34,7 +40,8 @@ let previewState = null;     // 右键菜单里手动预览的形象
 let lastInteraction = Date.now();
 let lastSnapshot = null;
 let lastOverall = 'idle';
-let anchorX = 0.6;           // 她脚底中心在窗口里的横向位置，气泡对准这里
+let anchorX = 0.6;
+let petFrame = DEFAULT_FRAME; // 当前角色的取景尺寸（模型单位），模型加载后由渲染进程报告           // 她脚底中心在窗口里的横向位置，气泡对准这里
 let bubbleTimer = null;
 let bubbleSize = null;
 let pendingPaths = null;     // 拖进来、正在等你选怎么处理的文件
@@ -49,8 +56,18 @@ function loadConfig() {
     c.y = Math.round(c.y + (300 - PET_H) * c.scale);
   }
   c.layout2 = true;
+  if (c.cx == null && c.x != null) {
+    // 位置改存「脚下中点」：换角色时窗口宽度会变，存左上角会让她慢慢漂移
+    c.cx = Math.round(c.x + (PET_W * c.scale) / 2);
+    c.bottom = Math.round(c.y + PET_H * c.scale);
+  }
+  delete c.x; delete c.y;
+  delete c.aspects;
+  c.frames = c.frames || {};
   return c;
 }
+const CHAR = () => byKey(config.character);
+
 function saveConfig() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
@@ -98,12 +115,50 @@ function syncAutoStart() {
 // —— 窗口 ——
 const PRELOAD = { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false };
 
+function petQuery() {
+  return { query: { scale: String(config.scale), char: CHAR().key } };
+}
+
+function petBoundsAt(cx, bottom) {
+  const k = (PET_H * config.scale) / REF_UNITS;
+  const w = Math.round(Math.min(petFrame.w, REF_UNITS * 2) * k);
+  const h = Math.round(Math.min(petFrame.h, REF_UNITS * 2) * k);
+  return { x: Math.round(cx - w / 2), y: Math.round(bottom - h), width: w, height: h };
+}
+
+function rememberPosition() {
+  const b = pet.getBounds();
+  config.cx = b.x + b.width / 2;
+  config.bottom = b.y + b.height;
+  saveConfig();
+}
+
+// 保持她脚下的位置（窗口底边中点）不动，改窗口尺寸
+function resizePet() {
+  const b = pet.getBounds();
+  pet.setBounds(petBoundsAt(b.x + b.width / 2, b.y + b.height));
+  rememberPosition();
+  placeBubble();
+}
+
+function switchCharacter(key) {
+  if (key === config.character) return;
+  config.character = key;
+  saveConfig();
+  hideBubble();
+  if (config.frames[key]) { petFrame = config.frames[key]; resizePet(); }
+  pet.loadFile(path.join(__dirname, 'renderer', 'pet.html'), petQuery());
+  updateTray(lastSnapshot ? decorate(lastSnapshot).state : 'normal');
+  if (panel && panel.isVisible() && lastSnapshot) panel.webContents.send('panel:data', decorate(lastSnapshot));
+}
+
 function createPet() {
   const { workArea } = screen.getPrimaryDisplay();
-  const w = Math.round(PET_W * config.scale);
-  const h = Math.round(PET_H * config.scale);
-  const x = config.x ?? workArea.x + workArea.width - w - 32;
-  const y = config.y ?? workArea.y + workArea.height - h;
+  petFrame = config.frames[CHAR().key] || DEFAULT_FRAME;
+  const { x, y, width: w, height: h } = petBoundsAt(
+    config.cx ?? workArea.x + workArea.width - 32 - PET_W / 2,
+    config.bottom ?? workArea.y + workArea.height,
+  );
   pet = new BrowserWindow({
     width: w, height: h, x, y,
     transparent: true, frame: false, resizable: false, hasShadow: false,
@@ -113,7 +168,7 @@ function createPet() {
   });
   pet.setAlwaysOnTop(config.alwaysOnTop, 'floating');
   pet.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  pet.loadFile(path.join(__dirname, 'renderer', 'pet.html'), { query: { scale: String(config.scale) } });
+  pet.loadFile(path.join(__dirname, 'renderer', 'pet.html'), petQuery());
 }
 
 function createBubble() {
@@ -211,6 +266,7 @@ function decorate(snap) {
     state: petState(snap),
     systemIdle: powerMonitor.getSystemIdleTime(),
     hooksInstalled: hooks.isInstalled(),
+    character: { key: CHAR().key, name: CHAR().name, seal: CHAR().seal, skin: CHAR().skin },
     config,
   };
 }
@@ -232,7 +288,7 @@ async function tick() {
     updateTray(data.state);
     if (config.notify && snap.overall === 'waiting' && lastOverall !== 'waiting' && Notification.isSupported()) {
       const s = snap.sessions.find((x) => x.status === 'waiting');
-      new Notification({ title: '夕：这一步要你点头', body: s ? `${s.title}${s.hookMsg ? ' · ' + s.hookMsg : ''}` : 'Claude 在等你确认', silent: false }).show();
+      new Notification({ title: `${CHAR().name}：这一步要你点头`, body: s ? `${s.title}${s.hookMsg ? ' · ' + s.hookMsg : ''}` : 'Claude 在等你确认', silent: false }).show();
     }
     lastOverall = snap.overall;
   } catch (e) {
@@ -245,7 +301,7 @@ const STATE_LABEL = { normal: '常态', working: '处理中', waiting: '等你�
 const TRAY_GLYPH = { normal: '', working: ' ✎', waiting: ' !', done: ' ✓', sleep: ' z', catch: '' };
 
 function updateTray(state) {
-  if (tray) tray.setTitle(`夕${TRAY_GLYPH[state] || ''}`);
+  if (tray) tray.setTitle(`${CHAR().seal}${TRAY_GLYPH[state] || ''}`);
 }
 
 function buildMenu() {
@@ -255,6 +311,12 @@ function buildMenu() {
     { label: '新建 Claude Code 会话', click: () => actions.newCodeSession() },
     { label: '继续最近的会话', click: () => actions.openClaudeApp() },
     { type: 'separator' },
+    {
+      label: '换角色',
+      submenu: CHARACTERS.map((c) => ({
+        label: `${c.name} · ${c.skin}`, type: 'radio', checked: config.character === c.key, click: () => switchCharacter(c.key),
+      })),
+    },
     {
       label: '拖入文件时',
       submenu: [
@@ -296,22 +358,13 @@ function buildMenu() {
       ? { label: '✓ 状态钩子已安装（点击卸载）', click: () => { hooks.uninstall(); } }
       : { label: '安装 Claude Code 状态钩子（更准）', click: () => { hooks.install(); } },
     { type: 'separator' },
-    { label: '退出夕', role: 'quit' },
+    { label: `退出${CHAR().name}`, role: 'quit' },
   ]);
 }
 
 function setScale(v) {
   config.scale = v;
-  const b = pet.getBounds();
-  const w = Math.round(PET_W * v);
-  const h = Math.round(PET_H * v);
-  const x = Math.round(b.x + b.width / 2 - w / 2);
-  const y = b.y + b.height - h;
-  pet.setBounds({ x, y, width: w, height: h });
-  config.x = x; config.y = y;
-  saveConfig();
-  pet.webContents.send('pet:scale', v);
-  placeBubble();
+  resizePet();
 }
 
 // —— 文件投递 ——
@@ -338,8 +391,7 @@ ipcMain.on('pet:drag-move', (_e, p) => {
 });
 ipcMain.on('pet:drag-end', () => {
   dragOrigin = null;
-  const [x, y] = pet.getPosition();
-  config.x = x; config.y = y; saveConfig();
+  rememberPosition();
 });
 ipcMain.on('pet:interact', () => { lastInteraction = Date.now(); });
 ipcMain.on('pet:toggle-panel', () => togglePanel());
@@ -348,6 +400,14 @@ ipcMain.on('pet:open-claude', () => actions.openClaudeApp());
 ipcMain.on('pet:say', (_e, { text, ms }) => say(text, ms));
 ipcMain.on('pet:hide-bubble', () => { if (!pendingPaths) hideBubble(); });
 ipcMain.on('pet:anchor', (_e, x) => { anchorX = x; if (bubble.isVisible()) placeBubble(); });
+ipcMain.on('pet:frame', (_e, f) => {
+  if (!f || !(f.w > 0) || !(f.h > 0)) return;
+  const next = { w: Math.round(f.w), h: Math.round(f.h) };
+  config.frames[CHAR().key] = next;
+  if (next.w === petFrame.w && next.h === petFrame.h) { saveConfig(); return; }
+  petFrame = next;
+  resizePet();
+});
 ipcMain.on('pet:drop', async (_e, { paths, how }) => {
   lastInteraction = Date.now();
   how = how === 'default' ? config.dropAction : how;
@@ -392,8 +452,8 @@ app.whenReady().then(() => {
   createBubble();
   createPanel();
   tray = new Tray(nativeImage.createEmpty());
-  tray.setTitle('夕');
-  tray.setToolTip('夕 · Claude 桌宠');
+  tray.setTitle(CHAR().seal);
+  tray.setToolTip('Claude 桌宠');
   tray.on('click', () => togglePanel());
   tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
   tick();

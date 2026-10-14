@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>模型检查</title>
+<style>
+  body { margin: 0; padding: 12px; font: 12px/1.5 -apple-system, "PingFang SC", sans-serif; background: #eef2f4; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, 150px); gap: 8px; }
+  figure { margin: 0; background: #fff; border-radius: 10px; padding: 4px; text-align: center; }
+  canvas { width: 140px; height: 146px; display: block; margin: auto; }
+  figcaption { font-size: 11px; color: #333; }
+  pre { white-space: pre-wrap; font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="grid" id="g"></div>
+<pre id="out"></pre>
+<script src="../../assets/vendor/spine-webgl.js"></script>
+<script src="../characters.js"></script>
+<script src="spine-char.js"></script>
+<script>
+  // 开发用：列出每个模型的动作和各动作可见范围；?anim=Sit 可以统一预览某个动作
+  // ?only=a,b 只看指定角色（浏览器一页能开的 WebGL 画布有限）
+  const only = new URLSearchParams(location.search).get('only');
+  const keys = Characters.CHARACTERS.map((c) => c.key).filter((k) => !only || only.split(',').includes(k));
+  const anim = new URLSearchParams(location.search).get('anim');
+  const report = {};
+  Promise.all(keys.map(async (k) => {
+    const fig = document.createElement('figure');
+    fig.innerHTML = `<canvas></canvas><figcaption>${k}${anim ? ' · ' + anim : ''}</figcaption>`;
+    document.getElementById('g').appendChild(fig);
+    const c = await new SpineChar(fig.querySelector('canvas'), `../../assets/models/${k}/`).load();
+    if (anim) c.play(anim);
+    report[k] = {
+      anims: c.data.animations.map((a) => `${a.name}(${a.duration.toFixed(1)}s)`),
+      core: Object.fromEntries(Object.entries(c.bounds).map(([n, v]) => [n, Math.round(v)])),
+      floors: Object.fromEntries(Object.entries(c.floors).map(([n, v]) => [n, Math.round(v)])),
+    };
+  })).then(() => {
+    document.getElementById('out').textContent = JSON.stringify(report, null, 1);
+    window.__report = report;
+  });
+</script>
+</body>
+</html>

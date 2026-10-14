@@ -14,15 +14,8 @@ const ANIM = {
   drag: 'Move',
 };
 
-const LINES = {
-  normal: ['今天想画点什么？', '有文件就丢给我。', '嗯……灵感还没来。', '点我看看工作台。', '别光看，我可不是摆设。'],
-  working: ['正在落笔……', '墨未干，莫催。', '这一笔得慢慢来。', '让我想想怎么构图。'],
-  waiting: ['这一步要你点头。', 'Claude 在等你确认。'],
-  done: ['画完了，去看看？', '收笔。', '落款，盖章。'],
-  sleep: ['Zzz……', '（梦里还在作画）'],
-  wake: ['……嗯？你回来了。', '刚才没睡，在构思。'],
-  catch: ['给我的？', '松手吧，我接着。'],
-};
+const CHAR = Characters.byKey(new URLSearchParams(location.search).get('char') || 'dusk');
+const LINES = CHAR.lines;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
 let realState = 'normal';
@@ -32,16 +25,14 @@ let dusk = null;
 let lastAnchor = -1;
 
 const params = new URLSearchParams(location.search);
-setScale(+(params.get('scale') || 1));
-function setScale(s) {
-  document.documentElement.style.setProperty('--s', s);
-}
+document.getElementById('seal-text').textContent = CHAR.seal;
 
 const say = (text, ms) => (api ? api.say(text, ms) : console.log('[气泡]', text));
 
-new DuskSpine(canvas, '../../assets/dusk/').load().then((d) => {
+new SpineChar(canvas, `../../assets/models/${CHAR.key}/`).load().then((d) => {
   dusk = d;
   window.__dusk = d;
+  api && api.frameSize(d.frameSize); // 主进程按统一比例设置窗口大小，角色之间体型一致
   render();
 }).catch((e) => {
   console.error(e);
@@ -61,16 +52,27 @@ function render() {
   else dusk.play(anim);
 }
 
-// 气泡要对准她的头：把脚底中心在画布里的横向位置告诉主进程
+// 气泡和特效要对准她：脚底中心在画布里的横向位置（0~1）
+const REF_FRAME_H = 438; // 特效层按夕的取景高度设计，其他角色按同样的像素/单位缩放
+function placeFx() {
+  if (!dusk || dusk.originX === undefined) return;
+  const fxH = (window.innerHeight * REF_FRAME_H) / dusk.frameSize.h;
+  const fxW = (fxH * 240) / 250;
+  fx.style.height = `${fxH}px`;
+  fx.style.width = `${fxW}px`;
+  fx.style.left = `${dusk.originX * window.innerWidth - 0.65 * fxW}px`; // 特效层按夕的站位设计，她的脚在 0.65 处
+}
 setInterval(() => {
-  if (!dusk || !api || dusk.originX === undefined) return;
+  if (!dusk || dusk.originX === undefined) return;
+  placeFx();
   const x = Math.round(dusk.originX * 100) / 100;
-  if (x !== lastAnchor) { lastAnchor = x; api.anchor(x); }
+  if (api && x !== lastAnchor) { lastAnchor = x; api.anchor(x); }
 }, 500);
+window.addEventListener('resize', placeFx);
 
 // 常态：偶尔变出小凳子坐下摸鱼
 setInterval(() => {
-  if (!dusk || override || realState !== 'normal' || dusk.current !== 'Relax') return;
+  if (!dusk || !dusk.specialFits || override || realState !== 'normal' || dusk.current !== 'Relax') return;
   if (Math.random() < 0.35) dusk.play('Special', { loop: false, then: 'Relax' });
 }, 45000);
 
@@ -87,7 +89,6 @@ if (api) {
       else if (LINES[realState]) say(pick(LINES[realState]));
     }
   });
-  api.onScale(setScale);
 } else {
   // 浏览器预览：?state=working 或 ?anim=Sit；按 1-6 切换状态
   realState = params.get('state') || 'normal';

@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('duskPet', {
   say: (text, ms) => ipcRenderer.send('pet:say', { text, ms }),
   hideBubble: () => ipcRenderer.send('pet:hide-bubble'),
   anchor: (x) => ipcRenderer.send('pet:anchor', x),
+  frameSize: (f) => ipcRenderer.send('pet:frame', f),
   // 气泡
   onBubble: (cb) => ipcRenderer.on('bubble:show', (_e, d) => cb(d)),
   bubbleSize: (s) => ipcRenderer.send('bubble:size', s),

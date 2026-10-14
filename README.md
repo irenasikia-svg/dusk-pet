@@ -1,6 +1,20 @@
 # 夕 · Claude 桌宠
 
-明日方舟「夕 · 0011制造/VI 染尘烟」的官方基建 Q 版小人，常驻桌面，替你盯着 Claude。
+明日方舟官方基建 Q 版小人，常驻桌面，替你盯着 Claude。默认是「夕 · 0011制造/VI 染尘烟」，右键 →「换角色」可以切换：
+
+| 角色 | 服装 |
+|---|---|
+| 夕 | 0011制造/VI · 染尘烟 |
+| 黍 | 默认服装、0011制造/XI · 春日宴 |
+| 蕾缪安 | 默认服装、音律联觉/VIII · 暮星安魂曲 |
+| 若叶睦 | 默认服装、Ave Mujica · 提线的本我 |
+| 丰川祥子 | Ave Mujica · 旋律的主人 |
+| 缄默德克萨斯 | 默认服装 |
+| 缪尔赛思 | 默认服装 |
+| 遥 | 默认服装、命途迭代/VI · 常世之幻 |
+| 结城理 | 女神异闻录３ Reload · 见证荣光 |
+
+每个角色有自己的台词。所有角色按同一个比例显示，体型一致；窗口大小随各自的动作范围调整，带高装饰的角色窗口会高一些。换角色时，脚下的位置不变。
 
 ## 启动
 
@@ -55,8 +69,15 @@ src/actions.js       拖放文件的三种投递方式
 src/renderer/        桌宠（Spine 播放）、毛玻璃气泡与工作台面板
 hooks/dusk-hook.js   Claude Code 钩子
 scripts/hooks.js     钩子安装和卸载
-assets/dusk/         官方 Spine 模型（来自 isHarryh/Ark-Models，版权归鹰角网络，仅限个人使用）
+assets/models/<角色>/ 官方 Spine 模型 model.skel/atlas/png（来自 isHarryh/Ark-Models，版权归鹰角网络，仅限个人使用）
+src/characters.js    角色列表与各自台词
 assets/vendor/       Spine 3.8 运行时（EsotericSoftware/spine-runtimes）
 ```
 
-想换角色或换皮肤：从 [Ark-Models](https://github.com/isHarryh/Ark-Models) 下载其他 `build_char_*` 模型，改名为 `dusk.skel / dusk.atlas / dusk.png`（atlas 第一行要改成 `dusk.png`），替换 `assets/dusk/` 里的文件即可。
+想再加角色：在 [Ark-Models](https://github.com/isHarryh/Ark-Models) 的 `models_data.json` 里找到对应的 `Operator` 模型编号（服装的正式名字可以对照 ArknightsGameData 的 `skin_table.json`），然后：
+
+```bash
+python3 scripts/fetch_model.py <新key> '<模型编号>'
+```
+
+脚本会下载模型、改名为 `model.*`。之后在 `src/characters.js` 里加一行，并写好台词。开发时可以打开 `src/renderer/inspect.html?only=<key>`，检查这个模型有哪些动作。

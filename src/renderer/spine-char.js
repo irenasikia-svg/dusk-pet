@@ -1,6 +1,6 @@
-// 用 Spine 3.8 运行时播放夕（0011制造/VI·染尘烟）的官方基建 Q 版模型
-// 动作：Relax 待机 · Interact 互动 · Move 走动 · Sit 坐 · Sleep 睡 · Special 特殊
-class DuskSpine {
+// 用 Spine 3.8 运行时播放明日方舟官方基建 Q 版模型（assets/models/<角色>/model.*）
+// 常见动作：Relax 待机 · Interact 互动 · Move 走动 · Sit 坐 · Sleep 睡 · Special 特殊（各角色不一定都有）
+class SpineChar {
   constructor(canvas, base) {
     this.canvas = canvas;
     this.base = base;
@@ -16,8 +16,8 @@ class DuskSpine {
     this.renderer.premultipliedAlpha = false;
     this.mvp = new spine.webgl.Matrix4();
     this.assets = new spine.webgl.AssetManager(this.ctx, base);
-    this.assets.loadBinary('dusk.skel');
-    this.assets.loadTextureAtlas('dusk.atlas');
+    this.assets.loadBinary('model.skel');
+    this.assets.loadTextureAtlas('model.atlas');
   }
 
   load() {
@@ -33,18 +33,15 @@ class DuskSpine {
   }
 
   setup() {
-    const atlas = this.assets.get('dusk.atlas');
+    const atlas = this.assets.get('model.atlas');
     const bin = new spine.SkeletonBinary(new spine.AtlasAttachmentLoader(atlas));
-    this.data = bin.readSkeletonData(this.assets.get('dusk.skel'));
+    this.data = bin.readSkeletonData(this.assets.get('model.skel'));
     this.skeleton = new spine.Skeleton(this.data);
     this.stateData = new spine.AnimationStateData(this.data);
     this.stateData.defaultMix = 0.25;
     this.state = new spine.AnimationState(this.stateData);
     this.animations = this.data.animations.map((a) => a.name);
-    this.bounds = this.measure();
-    // 每个动作各自的最低点：坐姿腿会垂到脚底线以下，取景要跟着往下挪
-    this.floors = {};
-    for (const name of this.animations) this.floors[name] = this.measure([name]).minY;
+    this.computeFrame();
     this.viewBottom = this.bounds.minY;
     this.ready = true;
     this.last = performance.now();
@@ -74,7 +71,31 @@ class DuskSpine {
     }
   }
 
-  // 主要动作的外接框取并集作为固定取景，切换动作时画面不跳
+  // 固定取景：覆盖常用动作（含坐、躺）的外接框，切换动作时画面不跳。
+  // 坐姿的腿会垂到脚底线以下，播放时取景整体下移（floors），所以高度按「各动作自己的高度」取最大。
+  computeFrame() {
+    this.animBounds = {};
+    this.floors = {};
+    for (const name of this.animations) {
+      const b = this.measure([name]);
+      this.animBounds[name] = b;
+      this.floors[name] = b.minY;
+    }
+    const framed = ['Relax', 'Interact', 'Move', 'Sleep', 'Sit'].filter((n) => this.has(n));
+    const standing = framed.filter((n) => n !== 'Sit');
+    const base = Math.min(...standing.map((n) => this.animBounds[n].minY));
+    const minX = Math.min(...framed.map((n) => this.animBounds[n].minX));
+    const maxX = Math.max(...framed.map((n) => this.animBounds[n].maxX));
+    const height = Math.max(...framed.map((n) => this.animBounds[n].maxY - Math.min(base, this.floors[n])));
+    this.bounds = { minX, maxX, minY: base, maxY: base + height };
+    this.aspect = (maxX - minX) / height;
+    this.frameSize = { w: maxX - minX, h: height }; // 模型单位；所有基建小人画的比例一致
+    // 特殊动作带大范围特效的角色就不随机播放了，免得被裁掉
+    const sp = this.animBounds.Special;
+    this.specialFits = !!sp && sp.minX >= minX - 0.1 * (maxX - minX) && sp.maxX <= maxX + 0.1 * (maxX - minX)
+      && sp.maxY - Math.min(base, sp.minY) <= height * 1.08;
+  }
+
   measure(names = ['Relax', 'Interact', 'Move', 'Sleep']) {
     const r = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
     for (const anim of this.data.animations) {
@@ -147,4 +168,4 @@ class DuskSpine {
     this.shader.unbind();
   }
 }
-window.DuskSpine = DuskSpine;
+window.SpineChar = SpineChar;
