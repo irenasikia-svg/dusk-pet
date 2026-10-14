@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' file:">
+<title>夕</title>
+<link rel="stylesheet" href="pet.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="dusk-canvas"></canvas>
+
+  <!-- 状态特效（叠在官方模型上，坐标系 240×250） -->
+  <svg id="fx" viewBox="0 0 240 250" data-state="normal">
+    <g class="v" data-in="working">
+      <circle class="d d1" cx="162" cy="58" r="6" fill="#1b1d24"/>
+      <circle class="d d2" cx="181" cy="58" r="6" fill="#18a99f"/>
+      <circle class="d d3" cx="200" cy="58" r="6" fill="#1b1d24"/>
+    </g>
+    <g class="v" data-in="sleep">
+      <text class="z z1" x="156" y="88">Z</text>
+      <text class="z z2" x="176" y="66">z</text>
+      <text class="z z3" x="192" y="48">z</text>
+    </g>
+    <g class="v fx-alert" data-in="waiting">
+      <rect x="164" y="30" width="34" height="36" rx="7" fill="#d42a3a"/>
+      <text x="181" y="58" text-anchor="middle" fill="#fff" font-weight="900" font-size="27">!</text>
+    </g>
+    <g class="v" data-in="done catch">
+      <path class="sp sp1" d="M 50 64 C 52 74 52 74 62 76 C 52 78 52 78 50 88 C 48 78 48 78 38 76 C 48 74 48 74 50 64 Z" fill="#7ff2e4"/>
+      <path class="sp sp2" d="M 190 56 C 192 65 192 65 201 67 C 192 69 192 69 190 78 C 188 69 188 69 179 67 C 188 65 188 65 190 56 Z" fill="#ffd76a"/>
+      <path class="sp sp3" d="M 204 136 C 206 144 206 144 214 146 C 206 148 206 148 204 156 C 202 148 202 148 194 146 C 202 144 202 144 204 136 Z" fill="#7ff2e4"/>
+    </g>
+    <g class="v" data-in="done" transform="translate(196 192) rotate(-10)">
+      <g class="seal">
+        <rect x="-19" y="-19" width="38" height="38" rx="4" fill="#c8283a"/>
+        <rect x="-15.5" y="-15.5" width="31" height="31" rx="3" fill="none" stroke="#f6d9d9" stroke-width="1.6"/>
+        <text y="9" text-anchor="middle" font-size="25" fill="#fff4f0" font-family="Songti SC, STSong, serif" font-weight="900">夕</text>
+      </g>
+    </g>
+  </svg>
+</div>
+<script src="../../assets/vendor/spine-webgl.js"></script>
+<script src="spine-dusk.js"></script>
+<script src="pet.js"></script>
+</body>
+</html>

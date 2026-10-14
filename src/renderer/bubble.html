@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; style-src 'self' 'unsafe-inline'; script-src 'self' file:">
+<title>夕 · 气泡</title>
+<link rel="stylesheet" href="bubble.css">
+</head>
+<body>
+<div id="box">
+  <div id="text"></div>
+  <div id="menu" hidden>
+    <button data-how="new">新开对话</button>
+    <button data-how="current">加到当前对话</button>
+    <button data-how="terminal">终端 CLI</button>
+    <button data-how="cancel" class="ghost">算了</button>
+  </div>
+</div>
+<script src="bubble.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+/* 窗口本身是 macOS 原生毛玻璃（vibrancy: popover），这里只负责内容 */
+:root {
+  --label: rgba(0, 0, 0, .86);
+  --label-2: rgba(0, 0, 0, .5);
+  --fill: rgba(255, 255, 255, .55);
+  --fill-hover: rgba(15, 154, 146, .9);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --label: rgba(255, 255, 255, .92);
+    --label-2: rgba(255, 255, 255, .55);
+    --fill: rgba(255, 255, 255, .12);
+    --fill-hover: rgba(24, 169, 159, .9);
+  }
+}
+html, body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+#box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: 232px;
+  padding: 8px 13px;
+  font: 500 13px/1.4 -apple-system, "SF Pro Text", "PingFang SC", sans-serif;
+  letter-spacing: .1px;
+  color: var(--label);
+  text-align: center;
+  animation: in .22s cubic-bezier(.2, .9, .3, 1.2);
+}
+#box.has-menu { padding: 10px 10px 10px; }
+#text { word-break: break-word; }
+#menu { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+#menu[hidden] { display: none; }
+#menu button {
+  font: 500 12px -apple-system, "PingFang SC", sans-serif;
+  color: var(--label);
+  background: var(--fill);
+  border: 0;
+  border-radius: 9px;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#menu button:hover { background: var(--fill-hover); color: #fff; }
+#menu button.ghost { background: transparent; color: var(--label-2); }
+#menu button.ghost:hover { background: var(--fill); color: var(--label); }
+@keyframes in { from { opacity: 0; transform: translateY(4px) scale(.96); } }

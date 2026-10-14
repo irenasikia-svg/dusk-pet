@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>夕 · 动作预览</title>
+<style>
+  body { margin: 0; padding: 12px; background: #dfe7ea; font-family: -apple-system, "PingFang SC", sans-serif; }
+  .grid { display: grid; grid-template-columns: repeat(3, 250px); gap: 10px; }
+  figure { margin: 0; background: #f4f1ea; border-radius: 12px; padding: 4px; text-align: center; }
+  iframe { width: 240px; height: 300px; border: 0; }
+  figcaption { font-size: 13px; color: #333; padding-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="grid" id="g"></div>
+<script>
+  const items = location.search.includes('anims')
+    ? ['Relax', 'Interact', 'Move', 'Sit', 'Sleep', 'Special'].map((a) => [`?anim=${a}`, a])
+    : [['?state=normal', '常态'], ['?state=working', '处理中'], ['?state=sleep', '一段时间不操作'], ['?state=waiting', '等你确认'], ['?state=done', '完成'], ['?state=catch', '拖文件经过']];
+  document.getElementById('g').innerHTML = items.map(([q, t]) => `<figure><iframe src="pet.html${q}"></iframe><figcaption>${t}</figcaption></figure>`).join('');
+</script>
+</body>
+</html>

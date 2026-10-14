@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; style-src 'self' 'unsafe-inline'; script-src 'self' file:">
+<title>夕 · 工作台</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<main class="card">
+  <header class="head drag">
+    <div class="seal" aria-hidden="true">夕</div>
+    <div class="who">
+      <div class="name">夕 · 工作台</div>
+      <div class="sub" id="state-line">读取中…</div>
+    </div>
+    <button class="icon nodrag" id="btn-menu" title="设置">⋯</button>
+    <button class="icon nodrag" id="btn-close" title="关闭">×</button>
+  </header>
+
+  <div class="scroll">
+    <div id="hook-tip" class="tip hidden">
+      <span>装上状态钩子后，「等你确认」「已完成」会更及时。</span>
+      <button id="btn-hooks">安装</button>
+    </div>
+
+    <section>
+      <h2>用量 <small id="plan-name"></small></h2>
+      <div class="quota" id="q-five">
+        <div class="q-head">
+          <span class="q-title">5 小时</span>
+          <span class="q-nums">已用 <b id="q-five-used">—</b><i>·</i>剩余 <b id="q-five-left">—</b></span>
+        </div>
+        <div class="meter" role="meter" aria-label="5 小时额度已用" aria-valuemin="0" aria-valuemax="100"><span id="q-five-bar"></span></div>
+        <div class="q-foot"><span class="q-reset" id="q-five-reset"></span><span class="q-note" id="q-five-note"></span></div>
+      </div>
+      <div class="quota" id="q-week">
+        <div class="q-head">
+          <span class="q-title">本周 · 所有模型</span>
+          <span class="q-nums">已用 <b id="q-week-used">—</b><i>·</i>剩余 <b id="q-week-left">—</b></span>
+        </div>
+        <div class="meter" role="meter" aria-label="本周额度已用" aria-valuemin="0" aria-valuemax="100"><span id="q-week-bar"></span></div>
+        <div class="q-foot"><span class="q-reset" id="q-week-reset"></span><span class="q-note" id="q-week-note"></span></div>
+      </div>
+      <p class="source" id="q-source"></p>
+    </section>
+
+    <section>
+      <h2>会话 <small id="s-count"></small></h2>
+      <ul class="list" id="sessions"></ul>
+    </section>
+
+    <section>
+      <h2>进程 <small id="p-count"></small></h2>
+      <ul class="list procs" id="procs"></ul>
+    </section>
+  </div>
+
+  <footer class="foot">
+    <button id="btn-new">＋ 新建会话</button>
+    <button id="btn-continue">继续最近会话</button>
+  </footer>
+</main>
+<script src="panel.js"></script>
+</body>
+</html>

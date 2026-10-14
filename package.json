@@ -1,0 +1,16 @@
+{
+  "name": "dusk-pet",
+  "version": "0.1.0",
+  "description": "夕 · Claude 的桌面分身（Q版桌宠）：显示 Claude Code 会话、进程与用量，拖拽文件即可交给 Claude",
+  "main": "src/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "install-hooks": "node scripts/hooks.js install",
+    "uninstall-hooks": "node scripts/hooks.js uninstall",
+    "snapshot": "node scripts/snapshot.js"
+  },
+  "devDependencies": {
+    "electron": "44.7.2"
+  }
+}
