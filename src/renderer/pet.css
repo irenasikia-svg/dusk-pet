@@ -20,19 +20,7 @@ html, body {
 #dusk-canvas.dragging { cursor: grabbing; }
 #fx { pointer-events: none; overflow: visible; }
 
-/* —— 特效 —— */
+/* —— 特效 ——
+   不用 CSS 动画：SVG 上的 CSS 动画即使所在分组被隐藏也会按屏幕刷新率（最高 120Hz）一直重绘，
+   实测常驻 8% CPU。改由 pet.js 的 animateFx 跟着小人的帧循环一起更新，只更新正在显示的特效。 */
 #fx * { transform-box: fill-box; transform-origin: center; }
-.d { animation: dot 1.2s ease-in-out infinite; }
-.d2 { animation-delay: .2s; } .d3 { animation-delay: .4s; }
-@keyframes dot { 0%, 100% { transform: translateY(0); opacity: .35; } 40% { transform: translateY(-8px); opacity: 1; } }
-
-
-.fx-alert { animation: hop .7s ease-in-out infinite; }
-@keyframes hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-8px) rotate(-6deg); } }
-
-.sp { animation: twinkle 1.4s ease-in-out infinite; }
-.sp2 { animation-delay: .45s; } .sp3 { animation-delay: .9s; }
-@keyframes twinkle { 0%, 100% { transform: scale(.3); opacity: 0; } 50% { transform: scale(1); opacity: 1; } }
-
-.seal { animation: stamp .45s cubic-bezier(.2, 1.6, .5, 1) both; }
-@keyframes stamp { from { transform: scale(2.2); opacity: 0; } }

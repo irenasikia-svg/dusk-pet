@@ -171,6 +171,43 @@ function createPet() {
   pet.setAlwaysOnTop(config.alwaysOnTop, 'floating');
   pet.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   pet.loadFile(path.join(__dirname, 'renderer', 'pet.html'), petQuery());
+  // 调试：对桌宠页做 10 秒 CPU 采样，按函数汇总耗时，写进 DUSK_DEBUG_DIR/profile.json
+  if (process.env.DUSK_DEBUG_PROFILE && process.env.DUSK_DEBUG_DIR) {
+    pet.webContents.once('did-finish-load', () => setTimeout(async () => {
+      const dbg = pet.webContents.debugger;
+      try {
+        dbg.attach('1.3');
+        await dbg.sendCommand('Profiler.enable');
+        await dbg.sendCommand('Profiler.setSamplingInterval', { interval: 200 });
+        await dbg.sendCommand('Profiler.start');
+        await new Promise((r) => setTimeout(r, 10000));
+        const { profile } = await dbg.sendCommand('Profiler.stop');
+        const self = {};
+        const total = profile.samples.length;
+        const byId = new Map(profile.nodes.map((n) => [n.id, n]));
+        const counts = {};
+        for (const id of profile.samples) counts[id] = (counts[id] || 0) + 1;
+        for (const [id, c] of Object.entries(counts)) {
+          const n = byId.get(+id).callFrame;
+          const key = `${n.functionName || '(anonymous)'} ${n.url.split('/').pop()}:${n.lineNumber}`;
+          self[key] = (self[key] || 0) + c;
+        }
+        const top = Object.entries(self).sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => [k, +(100 * v / total).toFixed(1)]);
+        fs.writeFileSync(path.join(process.env.DUSK_DEBUG_DIR, 'profile.json'), JSON.stringify({ total, top }, null, 1));
+        dbg.detach();
+      } catch (e) {
+        fs.writeFileSync(path.join(process.env.DUSK_DEBUG_DIR, 'profile.json'), JSON.stringify({ error: String(e) }));
+      }
+    }, 3000));
+  }
+  // 调试：页面加载 3 秒后在桌宠页里执行一段脚本（性能排查用），结果写进 DUSK_DEBUG_DIR
+  if (process.env.DUSK_DEBUG_EXEC) {
+    pet.webContents.once('did-finish-load', () => setTimeout(async () => {
+      let out;
+      try { out = await pet.webContents.executeJavaScript(process.env.DUSK_DEBUG_EXEC); } catch (e) { out = String(e); }
+      if (process.env.DUSK_DEBUG_DIR) fs.writeFileSync(path.join(process.env.DUSK_DEBUG_DIR, 'exec.json'), JSON.stringify(out));
+    }, 3000));
+  }
 }
 
 function createBubble() {
@@ -216,6 +253,7 @@ function togglePanel(force) {
   if (lastSnapshot) panel.webContents.send('panel:data', decorate(lastSnapshot));
   panel.show();
   panel.focus();
+  tick({ heavy: true }); // 打开时马上刷新会话、进程和用量
 }
 
 // —— 气泡 ——
@@ -341,7 +379,7 @@ function roamWalk(targetCx, speed, onArrive) {
   roam.flip = dir < 0; // 模型默认朝右，往左走要翻过来；停下来也保持朝向
   sendAct({ anim: 'Move', flip: roam.flip });
   const v = (speed || ROAM_SPEED) * s;
-  const stepMs = 1000 / 30;
+  const stepMs = 1000 / 20;
   const walk = setInterval(() => {
     if (!roam || roam.walk !== walk) { clearInterval(walk); return; }
     x += (dir * v * stepMs) / 1000;
@@ -389,26 +427,64 @@ function stopRoamNow(snapHome = true) {
   sendAct(null);
 }
 
+let hooksCache = { at: 0, value: false };
+function hooksInstalled() {
+  if (Date.now() - hooksCache.at > 30000) hooksCache = { at: Date.now(), value: hooks.isInstalled() };
+  return hooksCache.value;
+}
+
 function decorate(snap) {
   return {
     ...snap,
     state: roam ? 'roam' : petState(snap), // 往回走的路上也还算在闲逛
     systemIdle: powerMonitor.getSystemIdleTime(),
-    hooksInstalled: hooks.isInstalled(),
+    hooksInstalled: hooksInstalled(),
     character: { key: CHAR().key, name: CHAR().name, seal: CHAR().seal, skin: CHAR().skin },
     config,
   };
 }
 
-async function tick() {
+// —— 刷新节奏 ——
+const TICK_MS = 2000;            // 平时：只做便宜的状态检查
+const TICK_AWAY_MS = 10000;      // 你离开时
+const HEAVY_MS = 60000;          // 后台的完整刷新（列进程、算用量）
+const HEAVY_PANEL_MS = 3000;     // 面板开着时的完整刷新
+const AWAY_SECONDS = 600;        // 键鼠 10 分钟没动或锁屏 → 离开模式：动画、闲逛、对话检测全部暂停
+let away = false;
+let screenLocked = false;
+let tickTimer = null;
+let ticking = false;
+
+function setAway(on) {
+  if (away === on) return;
+  away = on;
+  if (on) stopRoamNow();
+  monitor.pause(on);
+  if (pet && !pet.isDestroyed()) pet.webContents.send('pet:pause', on);
+}
+
+function scheduleTick() {
+  clearTimeout(tickTimer);
+  tickTimer = setTimeout(() => tick(), away ? TICK_AWAY_MS : TICK_MS);
+}
+
+async function tick({ heavy = false } = {}) {
+  if (ticking) return;
+  ticking = true;
   try {
-    const snap = await monitor.tick(powerMonitor.getSystemIdleTime(), config);
+    const sysIdle = powerMonitor.getSystemIdleTime();
+    setAway(screenLocked || sysIdle >= AWAY_SECONDS || !!process.env.DUSK_DEBUG_AWAY);
+    const since = Date.now() - monitor.lastHeavy;
+    const panelOpen = panel && panel.isVisible();
+    const doHeavy = heavy || since >= HEAVY_MS || (panelOpen && since >= HEAVY_PANEL_MS);
+    const snap = await monitor.tick(sysIdle, config, { heavy: doHeavy && !away });
     lastSnapshot = snap;
-    if (petState(snap) === 'roam') startRoam();
+    if (!away && petState(snap) === 'roam') startRoam();
     else if (roam) endRoam();
     const data = decorate(snap);
     if (pet && !pet.isDestroyed()) pet.webContents.send('pet:state', {
       state: data.state,
+      away, // 页面加载晚于第一次判定时，靠这个补上暂停状态
       working: snap.sessions.filter((s) => s.status === 'working').length,
       waiting: snap.sessions.filter((s) => s.status === 'waiting').length,
       five: snap.plan.five,
@@ -424,6 +500,9 @@ async function tick() {
     lastOverall = snap.overall;
   } catch (e) {
     console.error('tick failed', e);
+  } finally {
+    ticking = false;
+    scheduleTick();
   }
 }
 
@@ -593,8 +672,14 @@ app.whenReady().then(() => {
   tray.on('click', () => togglePanel());
   tray.on('right-click', () => tray.popUpContextMenu(buildMenu()));
   tick();
-  setInterval(tick, 1500);
+  powerMonitor.on('lock-screen', () => { screenLocked = true; tick(); });
+  powerMonitor.on('unlock-screen', () => { screenLocked = false; tick(); });
+  powerMonitor.on('suspend', () => { screenLocked = true; tick(); });
+  powerMonitor.on('resume', () => { screenLocked = false; tick(); });
   if (process.env.DUSK_DEBUG_DIR) debugCapture(process.env.DUSK_DEBUG_DIR);
+  if (process.env.DUSK_DEBUG_DIR) setTimeout(() => fs.writeFileSync(path.join(process.env.DUSK_DEBUG_DIR, 'pids.json'), JSON.stringify({
+    pet: pet.webContents.getOSProcessId(), bubble: bubble.webContents.getOSProcessId(), panel: panel.webContents.getOSProcessId(),
+  })), 4000);
 });
 
 // 调试：截图并记录窗口位置，写到指定目录

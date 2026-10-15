@@ -60,6 +60,23 @@ cd ~/claude/dusk-pet && npm start
 - **用量（百分比）**：5 小时额度和本周额度的「已用 / 剩余」百分比。官方数据来自 Claude 桌面版自己记录的 `~/Library/Application Support/Claude/plan-usage-history.json`。桌面版启动时会抓一次用量，之后只有在过去 24 小时内点开过菜单栏里的 Claude 图标时，才会每 15 分钟（你在用时每 5 分钟）在后台刷新；数据过时的话，面板会提示你点一下那个图标。两次官方数据之间，按本机 Code 的输出 token 加上对话的回复时长往后推算，比例用官方读数自动校准，界面上标「≈」。DeepSeek 等第三方模型不计入 Claude 额度。重置时间来自 `~/.claude/dusk-pet/config.json` 里的 `weeklyResetAt` / `fiveHourResetAt`。`~/.claude/dusk-pet/plan-samples.json` 可以补充额外的官方读数，例如设置里「Usage」页面的截图数字。
 - **进程**：`ps` + `lsof` 找出 `claude` 进程及其工作目录，另外汇总 Claude.app 的 CPU 和内存。
 
+## 性能与刷新节奏
+
+2026-10-16 排查后的设置（单核 CPU 占用，实测）：
+
+| 情况 | CPU |
+|---|---|
+| 修复前 | 约 170%（`nettop` 空转 138% + 渲染 30% + 轮询 4%） |
+| 平时待机 | 约 12% |
+| 处理中 | 约 14% |
+| 你离开（键鼠 10 分钟没动或锁屏） | 约 0.5% |
+
+- **对话检测**：`nettop` 必须挂在一条 `sleep | script` 真管道上运行。stdin 给 `/dev/null` 会让它空转，给 Node 的 socket 会让 `script` 直接退出。启动时会按进程组清掉上次崩溃留下的孤儿进程。
+- **渲染**：不用 `requestAnimationFrame`，改用定时器限帧到 20 帧。关闭了多重采样抗锯齿。状态特效不用 CSS 动画（SVG 上的 CSS 动画即使隐藏也会按 120Hz 重绘），改由同一个帧循环更新。
+- **刷新**：每 2 秒只做便宜的状态检查（钩子事件、会话日志增量、对话检测）。列进程、`lsof`、算用量和额度这些重活，后台每 60 秒做一次；面板开着时每 3 秒一次，点开面板时立刻刷新。
+- **离开模式**：暂停动画、闲逛和对话检测，状态检查改为每 10 秒一次；你回来就恢复。
+- 调试用环境变量：`DUSK_DEBUG_DIR`（截图与记录）、`DUSK_DEBUG_STATE`（强制状态）、`DUSK_DEBUG_AWAY`（强制离开模式）、`DUSK_DEBUG_PROFILE`（桌宠页 CPU 采样）、`DUSK_DEBUG_EXEC`（在桌宠页执行脚本）。
+
 ## 文件
 
 ```

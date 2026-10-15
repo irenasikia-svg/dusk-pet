@@ -6,7 +6,25 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
+
+// 这个特别的 sleep 时长用来认出「我们自己启动的」那组进程（sleep | script | nettop）
+const MARK = 'sleep 2147483646';
+
+// 上次如果崩溃退出，那组进程会成为孤儿一直跑着；启动时按进程组整组清掉。
+// 注意不能只杀 sleep：管道一断 script 就读到 EOF，nettop 会空转吃满 CPU。
+function killOrphans() {
+  try {
+    const out = execFileSync('/bin/ps', ['-axo', 'pid=,pgid=,args=']).toString();
+    for (const line of out.split('\n')) {
+      const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+      // 只认组长正好是我们那条 sh -c "sleep … | script … nettop" 的进程组
+      if (!m || m[1] !== m[2] || !m[3].startsWith('/bin/sh -c') || !m[3].includes(MARK) || !m[3].includes('nettop')) continue;
+      try { process.kill(-Number(m[2]), 'SIGTERM'); } catch { /* 已经没了 */ }
+    }
+  } catch { /* ps 失败就算了 */ }
+}
+killOrphans();
 
 // 每次回复的起止时间记下来，给用量估算和 5 小时窗口推断用（对话没有本地日志）
 const ACTIVITY_FILE = path.join(os.homedir(), '.claude', 'dusk-pet', 'chat-activity.json');
@@ -45,7 +63,7 @@ function appendActivity(reply) {
 const THRESHOLDS = {
   startIn: [400, 3000],   // 「像在流式回复」的一秒：收到的字节数范围
   startOutMax: 2000,      //   且几乎不往外发
-  cpuMin: 2,              //   且渲染进程在忙（ps 的近期平均 CPU%）
+  cpuMin: 0,              //   渲染进程 CPU 门槛：回放验证过不看 CPU 也无误报，关掉后就不用每秒跑 ps 了
   startSamples: 5,        // 最近 startWindow 秒里有这么多秒像回复，才开始算「正在回复」
   startWindow: 6,
   keepInMin: 300,         // 已经在回复时，只要还有下行就继续（回复中偶尔夹着上传）
@@ -67,9 +85,16 @@ class ChatWatcher {
   }
 
   // 由 Monitor 每次刷新进程列表时调用
-  update({ netPid, rendererCpu }) {
-    this.rendererCpu = rendererCpu || 0;
-    if (netPid !== this.netPid) this.restart(netPid);
+  // 由 Monitor 列进程时调用；暂停（你离开）期间只记下 pid，不启动
+  update({ netPid }) {
+    if (this.hold) { this.netPid = netPid; return; }
+    if (netPid !== this.netPid || (netPid && !this.proc)) this.restart(netPid);
+  }
+
+  setHold(hold) {
+    this.hold = hold;
+    if (hold) this.stop();
+    else this.restart(this.netPid);
   }
 
   restart(netPid) {
@@ -77,9 +102,13 @@ class ChatWatcher {
     this.netPid = netPid;
     if (!netPid) return;
     if (!trackingSince()) writeFile({ trackingSince: Date.now(), replies: readActivity() });
-    // nettop 写管道时会整块缓冲，用 script 给它一个伪终端，样本才能逐秒到达
-    this.proc = spawn('/usr/bin/script', ['-q', '/dev/null', '/usr/bin/nettop', '-P', '-d', '-L', '0', '-s', '1', '-x',
-      '-J', 'bytes_in,bytes_out', '-p', String(netPid)], { stdio: ['ignore', 'pipe', 'ignore'] });
+    // nettop 写管道时会整块缓冲，用 script 给它一个伪终端，样本才能逐秒到达。
+    // script 的 stdin 必须是一个一直开着、什么也不写的「真」管道：
+    //   - 给 /dev/null：script 不停读到 EOF，nettop 跟着空转，实测 140%+ CPU；
+    //   - 给 Node 的 'pipe'：那其实是 socket，script 直接报错退出。
+    // 所以用 sh 搭一条 sleep | script 管道（sleep 永远不输出），整组进程一起启动、一起结束。
+    const cmd = `/bin/${MARK} | /usr/bin/script -q /dev/null /usr/bin/nettop -P -d -L 0 -s 1 -x -J bytes_in,bytes_out -p ${Number(netPid)}`;
+    this.proc = spawn('/bin/sh', ['-c', cmd], { stdio: ['ignore', 'pipe', 'ignore'], detached: true });
     let buf = '';
     this.proc.stdout.on('data', (chunk) => {
       buf += chunk.toString().replace(/\r/g, '');
@@ -92,7 +121,7 @@ class ChatWatcher {
 
   stop() {
     if (this.proc) {
-      try { this.proc.kill(); } catch { /* 已经退出 */ }
+      try { process.kill(-this.proc.pid, 'SIGTERM'); } catch { /* 已经退出 */ }
       this.proc = null;
     }
   }

@@ -34,6 +34,8 @@ class Monitor {
     this.procs = [];
     this.app = null;
     this.lastUsageRefresh = 0;
+    this.lastHeavy = 0;
+    this.heavy = { usage: null, plan: null };
   }
 
   readHookEvents() {
@@ -106,8 +108,7 @@ class Monitor {
     // 「对话」标签页的检测：App 的网络进程 + 主窗口渲染进程（内存最大的那个）
     const appRows = rows.filter((r) => appPids.has(r.pid));
     const net = appRows.find((r) => /network\.mojom\.NetworkService/.test(r.args));
-    const renderer = appRows.filter((r) => /--type=renderer/.test(r.args)).sort((a, b) => b.mem - a.mem)[0];
-    this.chat.update({ netPid: net ? net.pid : null, rendererCpu: renderer ? renderer.cpu : 0 });
+    this.chat.update({ netPid: net ? net.pid : null });
 
     if (appMain) {
       const all = rows.filter((r) => appPids.has(r.pid) && !sessions.some((s) => s.pid === r.pid));
@@ -123,13 +124,20 @@ class Monitor {
     }
   }
 
-  async tick(systemIdleSec = 0, cfg = {}) {
+  // 每次（约 2 秒）都做的只有便宜的事：读钩子事件、增量读会话日志、对话检测结果。
+  // 贵的事（ps + lsof 列进程、算用量和额度）只在 heavy=true 时做：后台每分钟一次，面板开着时每 3 秒一次。
+  async tick(systemIdleSec = 0, cfg = {}, { heavy = false } = {}) {
     const now = Date.now();
     if (now - this.lastUsageRefresh > 2500) {
       try { this.usage.refresh(); } catch (e) { console.error('usage refresh', e); }
       this.lastUsageRefresh = now;
     }
-    await this.refreshProcesses();
+    if (heavy || !this.lastHeavy) {
+      await this.refreshProcesses();
+      this.heavy.usage = this.usage.summary();
+      this.heavy.plan = this.plan.summary(cfg, this.chat.replies(now));
+      this.lastHeavy = now;
+    }
 
     const hooks = this.readHookEvents();
     const logSessions = this.usage.sessions();
@@ -170,8 +178,7 @@ class Monitor {
     }
     sessions.sort((a, b) => rank(a.status) - rank(b.status) || b.mtime - a.mtime);
 
-    const usage = this.usage.summary();
-    const lastClaudeActivity = Math.max(usage.lastActivity, ...sessions.map((s) => s.mtime), 0);
+    const lastClaudeActivity = Math.max(this.usage.lastActivity(), ...sessions.map((s) => s.mtime), 0);
     let overall = 'idle';
     if (sessions.some((s) => s.status === 'waiting')) overall = 'waiting';
     else if (sessions.some((s) => s.status === 'working')) overall = 'working';
@@ -183,8 +190,9 @@ class Monitor {
       sessions: sessions.slice(0, 12),
       procs: this.procs,
       app: this.app,
-      usage,
-      plan: this.plan.summary(cfg, this.chat.replies(now)),
+      usage: this.heavy.usage,
+      plan: this.heavy.plan,
+      refreshedAt: this.lastHeavy,
       hooksSeen: hooks.size > 0,
       chatActive: chat.status === 'working',
       at: now,
@@ -194,6 +202,11 @@ class Monitor {
 
 Monitor.prototype.stop = function stop() {
   this.chat.stop();
+};
+
+// 离开时暂停对话检测（nettop），回来再接上
+Monitor.prototype.pause = function pause(paused) {
+  this.chat.setHold(paused);
 };
 
 function rank(status) {

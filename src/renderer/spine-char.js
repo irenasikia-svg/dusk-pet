@@ -7,7 +7,8 @@ class SpineChar {
     this.current = null;
     this.flip = false;
     this.ready = false;
-    const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false, antialias: true });
+    // 视网膜屏上小人边缘本来就够细，关掉多重采样抗锯齿省 GPU
+    const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false, antialias: false });
     this.gl = gl;
     this.ctx = new spine.webgl.ManagedWebGLRenderingContext(gl);
     this.shader = spine.webgl.Shader.newTwoColoredTextured(this.ctx);
@@ -46,11 +47,15 @@ class SpineChar {
     this.ready = true;
     this.last = performance.now();
     this.play('Relax');
-    const loop = (t) => {
-      this.frame(t);
-      requestAnimationFrame(loop);
+    // 限帧并且不用 requestAnimationFrame：一直申请 rAF 会让 Chromium 按屏幕刷新率（最高 120Hz）不停出帧，
+    // 哪怕这一帧什么也不画；改用定时器，只在真正要画的时候才出帧。
+    this.loop = () => {
+      const now = performance.now();
+      this.frame(now);
+      if (this.onFrame) this.onFrame(now);
+      this.timer = setTimeout(this.loop, 1000 / (this.fps || SpineChar.FPS));
     };
-    requestAnimationFrame(loop);
+    this.loop();
   }
 
   // 只统计可见部件的外接框（基建模型里有很多透明占位的特效部件）
@@ -111,6 +116,14 @@ class SpineChar {
     return r;
   }
 
+  // 你离开时停住画面（保留最后一帧），回来再接着动
+  setPaused(paused) {
+    if (paused) { clearTimeout(this.timer); this.timer = null; return; }
+    if (this.timer || !this.loop) return;
+    this.last = performance.now();
+    this.loop();
+  }
+
   has(name) {
     return this.animations && this.animations.includes(name);
   }
@@ -168,4 +181,6 @@ class SpineChar {
     this.shader.unbind();
   }
 }
+// 20 帧：Q 版小人很流畅，比跟着屏幕刷新率（最高 120Hz）省很多
+SpineChar.FPS = 20;
 window.SpineChar = SpineChar;

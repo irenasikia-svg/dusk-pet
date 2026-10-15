@@ -33,6 +33,7 @@ new SpineChar(canvas, `../../assets/models/${CHAR.key}/`).load().then((d) => {
   dusk = d;
   window.__dusk = d;
   api && api.frameSize(d.frameSize); // 主进程按统一比例设置窗口大小，角色之间体型一致
+  d.onFrame = animateFx;
   // 告诉主进程各动作多长、特殊动作放不放得下，闲逛时它按这个安排节奏
   api && api.anims({
     durations: Object.fromEntries(d.data.animations.map((a) => [a.name, a.duration])),
@@ -43,6 +44,47 @@ new SpineChar(canvas, `../../assets/models/${CHAR.key}/`).load().then((d) => {
   console.error(e);
   say('模型没加载出来……', 8000);
 });
+
+// —— 特效动画：跟着小人的帧循环更新（见 pet.css 的说明） ——
+const FX = {
+  dots: [...fx.querySelectorAll('.d')],
+  alert: fx.querySelector('.fx-alert'),
+  sparks: [...fx.querySelectorAll('.sp')],
+  seal: fx.querySelector('.seal'),
+};
+let fxState = '';
+let fxSince = 0;
+const wave = (phase, peak = 0.4) => { // 0→1→0 的缓动，峰值出现在 peak 处
+  const v = phase < peak ? phase / peak : (1 - phase) / (1 - peak);
+  return 0.5 - 0.5 * Math.cos(Math.PI * v);
+};
+function animateFx(t) {
+  const state = fx.dataset.state;
+  if (state !== fxState) { fxState = state; fxSince = t; }
+  if (state === 'working') {
+    FX.dots.forEach((el, i) => {
+      const e = wave(((t / 1200) - i * 0.2 / 1.2 + 10) % 1);
+      el.style.transform = `translateY(${-8 * e}px)`;
+      el.style.opacity = 0.35 + 0.65 * e;
+    });
+  } else if (state === 'waiting') {
+    const e = wave((t / 700) % 1);
+    FX.alert.style.transform = `translateY(${-8 * e}px) rotate(${-6 * e}deg)`;
+  }
+  if (state === 'done' || state === 'catch') {
+    FX.sparks.forEach((el, i) => {
+      const e = wave(((t / 1400) - i * 0.45 / 1.4 + 10) % 1, 0.5);
+      el.style.transform = `scale(${0.3 + 0.7 * e})`;
+      el.style.opacity = e;
+    });
+  }
+  if (state === 'done') { // 盖章：放大的印章落下来
+    const p = Math.min(1, (t - fxSince) / 450);
+    const e = 1 - Math.pow(1 - p, 3);
+    FX.seal.style.transform = `scale(${2.2 - 1.2 * e})`;
+    FX.seal.style.opacity = p;
+  }
+}
 
 function render() {
   const state = override || realState;
@@ -92,6 +134,7 @@ setInterval(() => {
 
 // —— 状态更新 ——
 if (api) {
+  api.onPause((p) => { if (dusk) dusk.setPaused(p); });
   api.onAct((a) => {
     const fresh = JSON.stringify(a) !== JSON.stringify(act);
     act = a;
@@ -103,6 +146,7 @@ if (api) {
   api.onState((d) => {
     const prev = realState;
     info = d;
+    if (dusk) dusk.setPaused(!!d.away);
     realState = d.state;
     if (prev !== realState) {
       render();

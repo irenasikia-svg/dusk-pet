@@ -165,6 +165,13 @@ class UsageTracker {
     };
   }
 
+  // 最近一次 Claude 调用的时间（不用排序整份记录，便宜）
+  lastActivity() {
+    let t = 0;
+    for (const r of this.records) if (r.t > t) t = r.t;
+    return t;
+  }
+
   // 最近活跃的会话（主日志，不含子代理）
   sessions(withinMs = 12 * 3600 * 1000) {
     const now = Date.now();
