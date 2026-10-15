@@ -5,6 +5,7 @@ const os = require('os');
 const { execFile } = require('child_process');
 const { UsageTracker } = require('./usage');
 const { PlanUsage } = require('./plan');
+const { ChatWatcher } = require('./chat');
 
 const EVENTS_DIR = path.join(os.homedir(), '.claude', 'dusk-pet', 'events');
 const ACTIVE_WRITE_MS = 8000;          // 日志 8 秒内有写入 → 正在处理
@@ -29,6 +30,7 @@ class Monitor {
   constructor() {
     this.usage = new UsageTracker();
     this.plan = new PlanUsage(this.usage);
+    this.chat = new ChatWatcher();
     this.procs = [];
     this.app = null;
     this.lastUsageRefresh = 0;
@@ -101,6 +103,12 @@ class Monitor {
       };
     }).sort((a, b) => a.uptime - b.uptime);
 
+    // 「对话」标签页的检测：App 的网络进程 + 主窗口渲染进程（内存最大的那个）
+    const appRows = rows.filter((r) => appPids.has(r.pid));
+    const net = appRows.find((r) => /network\.mojom\.NetworkService/.test(r.args));
+    const renderer = appRows.filter((r) => /--type=renderer/.test(r.args)).sort((a, b) => b.mem - a.mem)[0];
+    this.chat.update({ netPid: net ? net.pid : null, rendererCpu: renderer ? renderer.cpu : 0 });
+
     if (appMain) {
       const all = rows.filter((r) => appPids.has(r.pid) && !sessions.some((s) => s.pid === r.pid));
       this.app = {
@@ -153,6 +161,13 @@ class Monitor {
       if (status === 'done' && now - Math.max(since, s.mtime) > DONE_FLASH_MS) status = 'idle';
       sessions.push({ ...s, status, since, tool: h ? h.tool : '', hookMsg: h ? h.message : '' });
     }
+    // Claude 桌面版的「对话」（Chat 标签页）：没有本地日志，靠 ChatWatcher 推断
+    const chat = this.chat.status(now);
+    if (chat.mtime && now - chat.mtime < 12 * 3600 * 1000) {
+      let status = chat.status;
+      if (status === 'done' && now - chat.since > DONE_FLASH_MS) status = 'idle';
+      sessions.push({ id: 'claude-chat', source: 'chat', title: 'Claude 对话', cwd: '', model: '', mtime: chat.mtime, since: chat.since, status, tool: '', hookMsg: '' });
+    }
     sessions.sort((a, b) => rank(a.status) - rank(b.status) || b.mtime - a.mtime);
 
     const usage = this.usage.summary();
@@ -169,12 +184,17 @@ class Monitor {
       procs: this.procs,
       app: this.app,
       usage,
-      plan: this.plan.summary(cfg),
+      plan: this.plan.summary(cfg, this.chat.replies(now)),
       hooksSeen: hooks.size > 0,
+      chatActive: chat.status === 'working',
       at: now,
     };
   }
 }
+
+Monitor.prototype.stop = function stop() {
+  this.chat.stop();
+};
 
 function rank(status) {
   return { waiting: 0, working: 1, done: 2, idle: 3 }[status] ?? 4;

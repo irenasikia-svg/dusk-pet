@@ -36,7 +36,7 @@ let pet = null;
 let panel = null;
 let bubble = null;
 let tray = null;
-let previewState = null;     // 右键菜单里手动预览的形象
+let previewState = process.env.DUSK_DEBUG_STATE || null; // 右键菜单里手动预览的形象（调试时可用环境变量指定）
 let lastInteraction = Date.now();
 let lastSnapshot = null;
 let lastOverall = 'idle';
@@ -135,6 +135,7 @@ function rememberPosition() {
 
 // 保持她脚下的位置（窗口底边中点）不动，改窗口尺寸
 function resizePet() {
+  stopRoamNow();
   const b = pet.getBounds();
   pet.setBounds(petBoundsAt(b.x + b.width / 2, b.y + b.height));
   rememberPosition();
@@ -143,6 +144,7 @@ function resizePet() {
 
 function switchCharacter(key) {
   if (key === config.character) return;
+  stopRoamNow();
   config.character = key;
   saveConfig();
   hideBubble();
@@ -256,14 +258,141 @@ function petState(snap) {
   const now = Date.now();
   const sysIdle = powerMonitor.getSystemIdleTime();
   const quiet = (now - Math.max(snap.lastClaudeActivity, lastInteraction)) / 60000;
-  if (sysIdle >= config.idleSeconds || quiet >= config.napAfterQuietMinutes) return 'sleep';
+  if (sysIdle >= config.idleSeconds || quiet >= config.napAfterQuietMinutes) return 'roam';
   return 'normal';
+}
+
+// —— 闲逛：长时间不操作时，在原位附近走走停停，停下时随机发呆 / 伸懒腰 / 特殊动作 ——
+const ROAM_SPEED = 26;   // 走路速度：像素/秒（倍率 1）
+const ROAM_RANGE = 240;  // 离原位最远多少像素（倍率 1）
+let roam = null;         // { home, timer, walk, returning }
+let petAnims = { durations: {}, specialFits: false };
+const rand = (n) => Math.random() * n;
+
+function petCenter() {
+  const b = pet.getBounds();
+  return b.x + b.width / 2;
+}
+
+function sendAct(act) {
+  if (pet && !pet.isDestroyed()) pet.webContents.send('pet:act', act);
+}
+
+function clearRoamTimers() {
+  if (!roam) return;
+  clearTimeout(roam.timer);
+  clearInterval(roam.walk);
+  roam.timer = null;
+  roam.walk = null;
+}
+
+function startRoam() {
+  if (roam && !roam.returning) return;
+  if (roam && roam.returning) { // 往回走到一半又没人理了：接着逛
+    clearRoamTimers();
+    roam.returning = false;
+    roamPause();
+    return;
+  }
+  roam = { home: config.cx ?? petCenter(), timer: null, walk: null, returning: false };
+  roamPause(2000 + rand(3000));
+}
+
+function roamNext() {
+  if (!roam || roam.returning) return;
+  if (Math.random() < 0.55) roamWalk(); else roamAct();
+}
+
+function roamPause(ms) {
+  sendAct({ anim: 'Relax', flip: roam.flip });
+  roam.timer = setTimeout(roamNext, ms ?? 3000 + rand(5000));
+}
+
+function roamAct() {
+  const options = [['Relax', 0.5], ['Interact', 0.25]];
+  if (petAnims.specialFits) options.push(['Special', 0.25]);
+  let r = rand(options.reduce((a, [, w]) => a + w, 0));
+  const [anim] = options.find(([, w]) => (r -= w) < 0) || options[0];
+  if (anim === 'Relax') {
+    sendAct({ anim: 'Relax', flip: roam.flip });
+    roam.timer = setTimeout(roamNext, 6000 + rand(7000));
+  } else {
+    sendAct({ anim, once: true, flip: roam.flip });
+    roam.timer = setTimeout(roamNext, (petAnims.durations[anim] || 3) * 1000 + 1500 + rand(3000));
+  }
+}
+
+function roamWalk(targetCx, speed, onArrive) {
+  const b = pet.getBounds();
+  const disp = screen.getDisplayMatching(b).workArea;
+  const s = config.scale;
+  let target = targetCx;
+  if (target == null) {
+    const lo = Math.max(roam.home - ROAM_RANGE * s, disp.x + b.width / 2);
+    const hi = Math.min(roam.home + ROAM_RANGE * s, disp.x + disp.width - b.width / 2);
+    const cur = petCenter();
+    for (let i = 0; i < 6; i++) {
+      target = lo + rand(Math.max(0, hi - lo));
+      if (Math.abs(target - cur) > 50 * s) break;
+    }
+  }
+  let x = petCenter();
+  const dir = Math.sign(target - x) || 1;
+  roam.flip = dir < 0; // 模型默认朝右，往左走要翻过来；停下来也保持朝向
+  sendAct({ anim: 'Move', flip: roam.flip });
+  const v = (speed || ROAM_SPEED) * s;
+  const stepMs = 1000 / 30;
+  const walk = setInterval(() => {
+    if (!roam || roam.walk !== walk) { clearInterval(walk); return; }
+    x += (dir * v * stepMs) / 1000;
+    const arrived = dir > 0 ? x >= target : x <= target;
+    if (arrived) x = target;
+    const bb = pet.getBounds();
+    pet.setPosition(Math.round(x - bb.width / 2), bb.y);
+    if (bubble.isVisible()) placeBubble();
+    if (arrived) {
+      clearInterval(walk);
+      roam.walk = null;
+      (onArrive || (() => roamPause()))();
+    }
+  }, stepMs);
+  roam.walk = walk;
+}
+
+// 你回来了：走回原位，再把控制权交还给正常状态
+function endRoam() {
+  if (!roam || roam.returning) return;
+  clearRoamTimers();
+  roam.returning = true;
+  if (Math.abs(petCenter() - roam.home) < 3) { finishRoam(); return; }
+  roamWalk(roam.home, ROAM_SPEED * 3, finishRoam);
+}
+
+function finishRoam() {
+  if (!roam) return;
+  clearRoamTimers();
+  roam = null;
+  sendAct(null);
+  tick();
+}
+
+// 换角色、改大小、开始拖动时：立刻停下（需要时瞬间回到原位）
+function stopRoamNow(snapHome = true) {
+  if (!roam) return;
+  clearRoamTimers();
+  const home = roam.home;
+  roam = null;
+  if (snapHome && pet && !pet.isDestroyed()) {
+    const b = pet.getBounds();
+    pet.setPosition(Math.round(home - b.width / 2), b.y);
+  }
+  sendAct(null);
 }
 
 function decorate(snap) {
   return {
     ...snap,
-    state: petState(snap),
+    state: roam ? 'roam' : petState(snap), // 往回走的路上也还算在闲逛
     systemIdle: powerMonitor.getSystemIdleTime(),
     hooksInstalled: hooks.isInstalled(),
     character: { key: CHAR().key, name: CHAR().name, seal: CHAR().seal, skin: CHAR().skin },
@@ -275,6 +404,8 @@ async function tick() {
   try {
     const snap = await monitor.tick(powerMonitor.getSystemIdleTime(), config);
     lastSnapshot = snap;
+    if (petState(snap) === 'roam') startRoam();
+    else if (roam) endRoam();
     const data = decorate(snap);
     if (pet && !pet.isDestroyed()) pet.webContents.send('pet:state', {
       state: data.state,
@@ -297,8 +428,8 @@ async function tick() {
 }
 
 // —— 菜单 ——
-const STATE_LABEL = { normal: '常态', working: '处理中', waiting: '等你确认', done: '完成', sleep: '睡觉', catch: '接文件' };
-const TRAY_GLYPH = { normal: '', working: ' ✎', waiting: ' !', done: ' ✓', sleep: ' z', catch: '' };
+const STATE_LABEL = { normal: '常态', working: '处理中', waiting: '等你确认', done: '完成', roam: '闲逛', catch: '接文件' };
+const TRAY_GLYPH = { normal: '', working: ' ✎', waiting: ' !', done: ' ✓', roam: ' ~', catch: '' };
 
 function updateTray(state) {
   if (tray) tray.setTitle(`${CHAR().seal}${TRAY_GLYPH[state] || ''}`);
@@ -333,7 +464,7 @@ function buildMenu() {
       label: '预览形象',
       submenu: [
         { label: '自动（跟随 Claude）', type: 'radio', checked: !previewState, click: () => { previewState = null; tick(); } },
-        ...['normal', 'working', 'waiting', 'done', 'sleep'].map((s) => ({
+        ...['normal', 'working', 'waiting', 'done', 'roam'].map((s) => ({
           label: STATE_LABEL[s], type: 'radio', checked: previewState === s, click: () => { previewState = s; tick(); },
         })),
       ],
@@ -345,7 +476,7 @@ function buildMenu() {
       })),
     },
     {
-      label: '多久不操作后睡觉',
+      label: '多久不操作后去闲逛',
       submenu: [[60, '1 分钟'], [180, '3 分钟'], [600, '10 分钟'], [1800, '30 分钟']].map(([v, l]) => ({
         label: l, type: 'radio', checked: config.idleSeconds === v, click: () => { config.idleSeconds = v; saveConfig(); },
       })),
@@ -383,7 +514,12 @@ async function deliver(paths, how) {
 
 // —— IPC ——
 let dragOrigin = null;
-ipcMain.on('pet:drag-start', (_e, p) => { dragOrigin = { mouse: p, win: pet.getPosition() }; lastInteraction = Date.now(); });
+ipcMain.on('pet:drag-start', (_e, p) => {
+  stopRoamNow(false); // 你拖到哪，她就把哪当新家
+  dragOrigin = { mouse: p, win: pet.getPosition() };
+  lastInteraction = Date.now();
+});
+ipcMain.on('pet:anims', (_e, a) => { if (a && a.durations) petAnims = a; });
 ipcMain.on('pet:drag-move', (_e, p) => {
   if (!dragOrigin) return;
   pet.setPosition(Math.round(dragOrigin.win[0] + p.x - dragOrigin.mouse.x), Math.round(dragOrigin.win[1] + p.y - dragOrigin.mouse.y));
@@ -477,6 +613,17 @@ async function debugCapture(dir) {
   togglePanel(true);
   await wait(1500);
   fs.writeFileSync(path.join(dir, 'panel.png'), (await panel.webContents.capturePage()).toPNG());
+  if (process.env.DUSK_DEBUG_STATE === 'roam') {
+    // 记录 30 秒内的窗口位置和几张截图，检查走路和停顿
+    const track = [];
+    for (let i = 0; i < 60; i++) {
+      if (i === 40) { previewState = null; lastInteraction = Date.now(); tick(); } // 20 秒后模拟你回来了
+      track.push({ t: i / 2, cx: Math.round(petCenter()), act: roam ? (roam.returning ? 'return' : roam.walk ? 'walk' : 'pause') : 'none' });
+      if (i % 12 === 6) fs.writeFileSync(path.join(dir, `roam-${i}.png`), (await pet.webContents.capturePage()).toPNG());
+      await wait(500);
+    }
+    fs.writeFileSync(path.join(dir, 'roam.json'), JSON.stringify({ home: roam && roam.home, track }));
+  }
   if (process.env.DUSK_DEBUG_MENU) {
     hideBubble();
     pendingPaths = ['/tmp/示例文件.pdf'];
@@ -488,3 +635,4 @@ async function debugCapture(dir) {
 }
 
 app.on('window-all-closed', (e) => e.preventDefault());
+app.on('before-quit', () => monitor.stop());

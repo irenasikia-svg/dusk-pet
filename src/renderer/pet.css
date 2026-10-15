@@ -26,9 +26,6 @@ html, body {
 .d2 { animation-delay: .2s; } .d3 { animation-delay: .4s; }
 @keyframes dot { 0%, 100% { transform: translateY(0); opacity: .35; } 40% { transform: translateY(-8px); opacity: 1; } }
 
-.z { fill: var(--teal); font-weight: 800; font-family: "Avenir Next", sans-serif; opacity: 0; animation: zfloat 3s ease-in infinite; }
-.z1 { font-size: 26px; } .z2 { font-size: 20px; animation-delay: 1s; } .z3 { font-size: 15px; animation-delay: 2s; }
-@keyframes zfloat { 0% { opacity: 0; transform: translate(0, 8px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -12px); } }
 
 .fx-alert { animation: hop .7s ease-in-out infinite; }
 @keyframes hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-8px) rotate(-6deg); } }

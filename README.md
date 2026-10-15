@@ -24,7 +24,7 @@
 cd ~/claude/dusk-pet && npm start
 ```
 
-菜单栏会出现「夕」，后面的符号表示当前状态（✎ 处理中、! 等你确认、✓ 完成、z 睡着）。
+菜单栏会出现当前角色的字，后面的符号表示当前状态（✎ 处理中、! 等你确认、✓ 完成、~ 闲逛）。
 
 **开机自动启动**默认开启：用的是 `~/Library/LaunchAgents/local.dusk-pet.plist`，登录时自动拉起。在右键菜单里取消「开机自动启动」就会删掉这个文件。
 
@@ -36,7 +36,7 @@ cd ~/claude/dusk-pet && npm start
 |---|---|---|
 | 常态 | Relax 待机（偶尔变出小凳子坐下摸鱼） | 默认 |
 | 处理中 | Sit 坐下来专心干活，头顶冒墨点 | 任意 Claude Code 会话在跑 |
-| 一段时间不操作 | Sleep 睡觉 + Zzz | 键鼠闲置超过 3 分钟（可调），或 Claude 和夕都 20 分钟没人理 |
+| 一段时间不操作 | 闲逛：在原位左右约 240 像素内慢慢走走停停，停下时随机发呆、伸懒腰或做特殊动作；你一动鼠标，她就走回原位 | 键鼠闲置超过 3 分钟（可调），或 Claude 和她都 20 分钟没人理 |
 | 等你确认 | Interact + 红色「!」 | 有会话在等你批准权限（会发系统通知） |
 | 完成 | Interact 一次 + 盖「夕」印章 | 会话刚答完 |
 | 拖文件经过 | Interact + 闪光 | 拖着文件悬停在她身上 |
@@ -56,7 +56,8 @@ cd ~/claude/dusk-pet && npm start
 ## 数据来源
 
 - **会话状态**：Claude Code 钩子（`hooks/dusk-hook.js`，写入 `~/.claude/dusk-pet/events/`）加上会话日志的写入时间。安装和卸载都在右键菜单里完成，或者用 `npm run install-hooks` / `npm run uninstall-hooks`。改动 `~/.claude/settings.json` 前会先备份，其他钩子原样保留。
-- **用量（百分比）**：5 小时额度和本周额度的「已用 / 剩余」百分比。官方数据来自 Claude 桌面版自己记录的 `~/Library/Application Support/Claude/plan-usage-history.json`。桌面版只在菜单栏图标最近被打开过时才会在后台刷新这份数据，所以它可能过时；过时的部分按本机 Claude 日志里的输出 token 外推，比例根据历史读数自动校准，界面上标「≈」。DeepSeek 等第三方模型不计入 Claude 额度。重置时间来自 `~/.claude/dusk-pet/config.json` 里的 `weeklyResetAt` / `fiveHourResetAt`。`~/.claude/dusk-pet/plan-samples.json` 可以补充额外的官方读数。
+- **「对话」标签页**：普通对话在 App 的网页里直接接收回复，本机没有日志，也没有「正在回复」的信号。所以夕用 `nettop` 看 App 网络进程每秒收到的字节，再结合窗口渲染进程的 CPU：回复时是每秒稳定 0.6–1 KB 的下行、几乎不上行，持续好几秒；切页面则是大块突发。阈值来自 2026-10-15 的实测，见 `src/chat.js`。每次回复的起止时间记在 `~/.claude/dusk-pet/chat-activity.json`，用于估算用量。
+- **用量（百分比）**：5 小时额度和本周额度的「已用 / 剩余」百分比。官方数据来自 Claude 桌面版自己记录的 `~/Library/Application Support/Claude/plan-usage-history.json`。桌面版启动时会抓一次用量，之后只有在过去 24 小时内点开过菜单栏里的 Claude 图标时，才会每 15 分钟（你在用时每 5 分钟）在后台刷新；数据过时的话，面板会提示你点一下那个图标。两次官方数据之间，按本机 Code 的输出 token 加上对话的回复时长往后推算，比例用官方读数自动校准，界面上标「≈」。DeepSeek 等第三方模型不计入 Claude 额度。重置时间来自 `~/.claude/dusk-pet/config.json` 里的 `weeklyResetAt` / `fiveHourResetAt`。`~/.claude/dusk-pet/plan-samples.json` 可以补充额外的官方读数，例如设置里「Usage」页面的截图数字。
 - **进程**：`ps` + `lsof` 找出 `claude` 进程及其工作目录，另外汇总 Claude.app 的 CPU 和内存。
 
 ## 文件

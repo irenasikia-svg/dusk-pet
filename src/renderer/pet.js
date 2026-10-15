@@ -9,7 +9,6 @@ const ANIM = {
   working: 'Sit',      // 坐下来专心干活，头顶冒墨点
   waiting: 'Interact',
   done: 'Interact',
-  sleep: 'Sleep',
   catch: 'Interact',
   drag: 'Move',
 };
@@ -23,6 +22,7 @@ let override = null; // 拖文件经过 / 拖动时的临时形象
 let info = { working: 0, waiting: 0, five: null, week: null, tool: '' };
 let dusk = null;
 let lastAnchor = -1;
+let act = null;      // 闲逛时主进程指挥的动作 { anim, flip, once }
 
 const params = new URLSearchParams(location.search);
 document.getElementById('seal-text').textContent = CHAR.seal;
@@ -33,6 +33,11 @@ new SpineChar(canvas, `../../assets/models/${CHAR.key}/`).load().then((d) => {
   dusk = d;
   window.__dusk = d;
   api && api.frameSize(d.frameSize); // 主进程按统一比例设置窗口大小，角色之间体型一致
+  // 告诉主进程各动作多长、特殊动作放不放得下，闲逛时它按这个安排节奏
+  api && api.anims({
+    durations: Object.fromEntries(d.data.animations.map((a) => [a.name, a.duration])),
+    specialFits: d.specialFits,
+  });
   render();
 }).catch((e) => {
   console.error(e);
@@ -46,10 +51,19 @@ function render() {
     el.style.display = el.dataset.in.split(' ').includes(state) ? '' : 'none';
   }
   if (!dusk) return;
+  if (state === 'roam') { playAct(); return; }
   if (state !== 'drag') dusk.flip = false;
   const anim = params.get('anim') || ANIM[state] || 'Relax';
   if (state === 'done') dusk.play('Interact', { loop: false, then: 'Relax' });
   else dusk.play(anim);
+}
+
+// 闲逛：走路、发呆、伸懒腰、特殊动作，由主进程按节奏下达
+function playAct() {
+  const a = act || { anim: 'Relax' };
+  dusk.flip = !!a.flip;
+  if (a.once) dusk.play(a.anim, { loop: false, then: 'Relax' });
+  else dusk.play(a.anim);
 }
 
 // 气泡和特效要对准她：脚底中心在画布里的横向位置（0~1）
@@ -78,13 +92,21 @@ setInterval(() => {
 
 // —— 状态更新 ——
 if (api) {
+  api.onAct((a) => {
+    const fresh = JSON.stringify(a) !== JSON.stringify(act);
+    act = a;
+    if (realState !== 'roam' || override) return;
+    if (fresh && dusk) dusk.current = null; // 同一个动作再下达一次（比如又一次伸懒腰）也要重播
+    render();
+    if (a && a.anim === 'Relax' && Math.random() < 0.2) say(pick(LINES.roam), 3500);
+  });
   api.onState((d) => {
     const prev = realState;
     info = d;
     realState = d.state;
     if (prev !== realState) {
       render();
-      if (prev === 'sleep') say(pick(LINES.wake));
+      if (prev === 'roam') say(pick(LINES.wake));
       else if (realState === 'working' && d.tool) say(`正在用 ${d.tool}……`);
       else if (LINES[realState]) say(pick(LINES[realState]));
     }
@@ -92,7 +114,7 @@ if (api) {
 } else {
   // 浏览器预览：?state=working 或 ?anim=Sit；按 1-6 切换状态
   realState = params.get('state') || 'normal';
-  const order = ['normal', 'working', 'waiting', 'done', 'sleep', 'catch'];
+  const order = ['normal', 'working', 'waiting', 'done', 'roam', 'catch'];
   window.addEventListener('keydown', (e) => {
     const i = +e.key - 1;
     if (order[i]) { realState = order[i]; render(); }

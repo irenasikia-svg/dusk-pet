@@ -8,7 +8,7 @@ const STATUS = {
   done: ['✓ 刚完成', 'done'],
   idle: ['· 空闲', 'idle'],
 };
-const PET_STATE = { normal: '醒着，随时待命', working: '正在落笔', waiting: '有一步在等你点头', done: '刚刚收笔', sleep: '睡着了（动一下鼠标叫醒）', catch: '在接文件' };
+const PET_STATE = { normal: '醒着，随时待命', working: '正在落笔', waiting: '有一步在等你点头', done: '刚刚收笔', roam: '在附近闲逛（动一下鼠标她就回来）', catch: '在接文件' };
 
 function fmt(n) {
   if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
@@ -77,7 +77,8 @@ function renderPlan(p) {
   }
   const est = (p.five && p.five.estimated) || (p.week && p.week.estimated);
   const last = p.last ? `官方数据 ${hhmm(p.last.t)} 同步` : '';
-  $('q-source').textContent = est ? `${last} · ≈ 为本机估算` : last;
+  const hint = p.stale ? ' · 点一下菜单栏的 Claude 图标，之后 24 小时它每 15 分钟自动同步' : '';
+  $('q-source').textContent = `${last}${est ? ' · ≈ 为本机估算（含对话）' : ''}${hint}`;
 }
 
 function renderSessions(list) {
@@ -88,7 +89,7 @@ function renderSessions(list) {
     return `<li title="${esc(s.cwd)}">
       <span class="chip ${cls}">${label}</span>
       <span class="title">${esc(s.title)}</span>
-      <span class="meta">${esc(base(s.cwd))}${s.model ? ' · ' + esc(s.model) : ''} · ${ago(s.mtime)}${extra}</span>
+      <span class="meta">${s.source === 'chat' ? '桌面版对话' : esc(base(s.cwd))}${s.model ? ' · ' + esc(s.model) : ''} · ${ago(s.mtime)}${extra}</span>
     </li>`;
   }).join('') : '<li class="empty">最近没有会话。把文件拖给夕就能开一个。</li>';
 }

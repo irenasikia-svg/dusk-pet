@@ -81,7 +81,7 @@ class SpineChar {
       this.animBounds[name] = b;
       this.floors[name] = b.minY;
     }
-    const framed = ['Relax', 'Interact', 'Move', 'Sleep', 'Sit'].filter((n) => this.has(n));
+    const framed = ['Relax', 'Interact', 'Move', 'Sit'].filter((n) => this.has(n)); // 不再用 Sleep（躺下很宽）
     const standing = framed.filter((n) => n !== 'Sit');
     const base = Math.min(...standing.map((n) => this.animBounds[n].minY));
     const minX = Math.min(...framed.map((n) => this.animBounds[n].minX));
