@@ -16,6 +16,25 @@
 
 每个角色有自己的台词。所有角色按同一个比例显示，体型一致；窗口大小随各自的动作范围调整，带高装饰的角色窗口会高一些。换角色时，脚下的位置不变。
 
+## 准备模型
+
+角色模型是鹰角网络的游戏美术资源，版权归鹰角，**不包含在这个仓库里**，请自行下载到本地、仅限个人使用。需要 Python 3，下面这条命令会从 [isHarryh/Ark-Models](https://github.com/isHarryh/Ark-Models)（黍「源远流长」来自 [HellaOrg/HellaAssets](https://github.com/HellaOrg/HellaAssets)）下载全部 14 套，共约 16 MB，放进 `assets/models/<key>/`：
+
+```bash
+python3 scripts/fetch_model.py \
+  dusk '2015_dusk_nian#7' \
+  shu 2025_shu  shu_nian11 '2025_shu_nian#11' \
+  shu_nlc 'gh:HellaOrg/HellaAssets/spine/operator/build/build_char_2025_shu_nlc#1' \
+  lemuen 4193_lemuen  lemuen_ambience '4193_lemuen_ambiencesynesthesia#7' \
+  mortis 4183_mortis  mortis_avemujica '4183_mortis_avemujica#1' \
+  sakiko_avemujica '4182_oblvns_avemujica#1' \
+  texas2 1028_texas2  muelsyse 249_mlyss \
+  haruka 4202_haruka  haruka_iteration '4202_haruka_iteration#6' \
+  makoto_p3r '4217_makoto_p3r#1'
+```
+
+`<key>` 要和 `src/characters.js` 里的一致；没下载的角色在「换角色」里选了会是空白。
+
 ## 启动
 
 双击 `启动夕.command`，或者：
@@ -95,9 +114,9 @@ src/renderer/        桌宠（Spine 播放）、毛玻璃气泡与工作台面�
 hooks/dusk-hook.js   Claude Code 钩子
 hooks/wait-key.js    「等你确认」待办的配对键和提示文字（钩子和桌宠共用）
 scripts/hooks.js     钩子安装和卸载
-assets/models/<角色>/ 官方 Spine 模型 model.skel/atlas/png（来自 isHarryh/Ark-Models，版权归鹰角网络，仅限个人使用）
+assets/models/<角色>/ 官方 Spine 模型 model.skel/atlas/png（不在仓库里，见「准备模型」；版权归鹰角网络，仅限个人使用）
 src/characters.js    角色列表与各自台词
-assets/vendor/       Spine 3.8 运行时（EsotericSoftware/spine-runtimes）
+assets/vendor/       Spine 3.8 运行时（EsotericSoftware/spine-runtimes，许可证见 LICENSE-spine-runtimes.txt）
 ```
 
 想再加角色：在 [Ark-Models](https://github.com/isHarryh/Ark-Models) 的 `models_data.json` 里找到对应的 `Operator` 模型编号（服装的正式名字可以对照 ArknightsGameData 的 `skin_table.json`），然后：

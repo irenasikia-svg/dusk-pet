@@ -1,3 +1,9 @@
 node_modules/
 .DS_Store
 *.log
+
+# 鹰角的游戏美术资源只能本地自用，不进仓库（见 README「准备模型」）
+assets/models/
+assets/dusk/
+# 截图里有角色形象，同样只留在本地
+docs/*.png

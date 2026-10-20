@@ -46,7 +46,7 @@ hooks/dusk-hook.js   Claude Code 钩子，写 ~/.claude/dusk-pet/events/<session
 hooks/wait-key.js    待办的配对键（工具名 + 主要参数）和提示文字
 scripts/hooks.js     钩子安装/卸载（会先备份 ~/.claude/settings.json）
 scripts/fetch_model.py  下载模型并改名为 model.*
-assets/models/<key>/ 模型（版权归鹰角，只能本地自用，不要推到公开仓库）
+assets/models/<key>/ 模型（版权归鹰角，只能本地自用；已加进 .gitignore，GitHub 公开仓库里没有，也已从提交历史里清掉）
 ```
 
 ## 本机上相关的文件
