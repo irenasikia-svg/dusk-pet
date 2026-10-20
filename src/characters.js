@@ -89,6 +89,7 @@
     { key: 'dusk', name: '夕', skin: '0011制造/VI · 染尘烟', seal: '夕' },
     { key: 'shu', name: '黍', skin: '默认服装', seal: '黍' },
     { key: 'shu_nian11', name: '黍', skin: '0011制造/XI · 春日宴', seal: '黍' },
+    { key: 'shu_nlc', name: '黍', skin: '国家图书馆 · 源远流长', seal: '黍' },
     { key: 'lemuen', name: '蕾缪安', skin: '默认服装', seal: '蕾' },
     { key: 'lemuen_ambience', name: '蕾缪安', skin: '音律联觉/VIII · 暮星安魂曲', seal: '蕾' },
     { key: 'mortis', name: '若叶睦', skin: '默认服装', seal: '睦' },
