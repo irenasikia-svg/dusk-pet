@@ -13,14 +13,15 @@ const MARK = 'sleep 2147483646';
 
 // 上次如果崩溃退出，那组进程会成为孤儿一直跑着；启动时按进程组整组清掉。
 // 注意不能只杀 sleep：管道一断 script 就读到 EOF，nettop 会空转吃满 CPU。
+// 只清父进程已经不在（被 launchd 收养，ppid=1）的组：别的进程加载这个文件时，不能误杀正在运行的桌宠的那组。
 function killOrphans() {
   try {
-    const out = execFileSync('/bin/ps', ['-axo', 'pid=,pgid=,args=']).toString();
+    const out = execFileSync('/bin/ps', ['-axo', 'pid=,ppid=,pgid=,args=']).toString();
     for (const line of out.split('\n')) {
-      const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+      const m = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(line);
       // 只认组长正好是我们那条 sh -c "sleep … | script … nettop" 的进程组
-      if (!m || m[1] !== m[2] || !m[3].startsWith('/bin/sh -c') || !m[3].includes(MARK) || !m[3].includes('nettop')) continue;
-      try { process.kill(-Number(m[2]), 'SIGTERM'); } catch { /* 已经没了 */ }
+      if (!m || m[1] !== m[3] || m[2] !== '1' || !m[4].startsWith('/bin/sh -c') || !m[4].includes(MARK) || !m[4].includes('nettop')) continue;
+      try { process.kill(-Number(m[3]), 'SIGTERM'); } catch { /* 已经没了 */ }
     }
   } catch { /* ps 失败就算了 */ }
 }
@@ -108,15 +109,17 @@ class ChatWatcher {
     //   - 给 Node 的 'pipe'：那其实是 socket，script 直接报错退出。
     // 所以用 sh 搭一条 sleep | script 管道（sleep 永远不输出），整组进程一起启动、一起结束。
     const cmd = `/bin/${MARK} | /usr/bin/script -q /dev/null /usr/bin/nettop -P -d -L 0 -s 1 -x -J bytes_in,bytes_out -p ${Number(netPid)}`;
-    this.proc = spawn('/bin/sh', ['-c', cmd], { stdio: ['ignore', 'pipe', 'ignore'], detached: true });
+    const proc = spawn('/bin/sh', ['-c', cmd], { stdio: ['ignore', 'pipe', 'ignore'], detached: true });
+    this.proc = proc;
     let buf = '';
-    this.proc.stdout.on('data', (chunk) => {
+    proc.stdout.on('data', (chunk) => {
       buf += chunk.toString().replace(/\r/g, '');
       const lines = buf.split('\n');
       buf = lines.pop();
       for (const line of lines) this.onLine(line);
     });
-    this.proc.on('exit', () => { if (this.proc && this.proc.exitCode !== null) this.proc = null; });
+    // 被信号杀掉时 exitCode 是 null，所以按身份比对：退出的就是当前这组，下次列进程时会重新拉起
+    proc.on('exit', () => { if (this.proc === proc) this.proc = null; });
   }
 
   stop() {

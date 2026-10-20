@@ -3,17 +3,22 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { toolKey } = require('../hooks/wait-key');
 
 const PROJECTS = path.join(os.homedir(), '.claude', 'projects');
 const KEEP_DAYS = 35;
 const BLOCK_MS = 5 * 3600 * 1000;
 const DAY_MS = 24 * 3600 * 1000;
+const MARKS_KEEP = 40;
+const INTERRUPT_RE = /^\[Request interrupted by user/;
 
 class UsageTracker {
   constructor() {
     this.files = new Map(); // file -> { offset, rest, mtime, meta }
     this.seen = new Set();
     this.records = []; // { t, model, input, output, cacheW, cacheR, session, project }
+    // 每个会话（含子代理日志）最近的工具结果和「中断」标记，用来判断权限请求有没有被答复
+    this.marks = new Map(); // session -> { uses: Map(tool_use_id -> key), list: [{ ts, kind, key }] }
   }
 
   listJsonl(dir, out = []) {
@@ -75,6 +80,7 @@ class UsageTracker {
 
   ingest(d, meta, session, project, isSub) {
     const ts = d.timestamp ? Date.parse(d.timestamp) : 0;
+    if (d.type === 'user' || d.type === 'assistant') this.mark(d, session, ts);
     if (!isSub) {
       if (d.type === 'custom-title' && d.customTitle) meta.title = d.customTitle;
       if (d.type === 'summary' && d.summary && !meta.title) meta.title = d.summary;
@@ -109,6 +115,37 @@ class UsageTracker {
       session,
       project,
     });
+  }
+
+  mark(d, session, ts) {
+    const c = d.message && d.message.content;
+    let m = this.marks.get(session);
+    if (!m) { m = { uses: new Map(), list: [] }; this.marks.set(session, m); }
+    const push = (kind, key = '') => {
+      m.list.push({ ts, kind, key });
+      if (m.list.length > MARKS_KEEP) m.list.shift();
+    };
+    if (typeof c === 'string') {
+      if (d.type === 'user' && INTERRUPT_RE.test(c)) push('interrupt');
+      return;
+    }
+    if (!Array.isArray(c)) return;
+    for (const b of c) {
+      if (b.type === 'tool_use' && b.id) {
+        m.uses.set(b.id, toolKey(b.name, b.input));
+        if (m.uses.size > MARKS_KEEP) m.uses.delete(m.uses.keys().next().value);
+      } else if (b.type === 'tool_result') {
+        push('result', m.uses.get(b.tool_use_id) || '');
+      } else if (b.type === 'text' && d.type === 'user' && INTERRUPT_RE.test(b.text || '')) {
+        push('interrupt');
+      }
+    }
+  }
+
+  // 某会话在 ts 之后出现的工具结果 / 中断
+  marksSince(session, ts) {
+    const m = this.marks.get(session);
+    return m ? m.list.filter((x) => x.ts > ts) : [];
   }
 
   // —— 汇总 ——

@@ -9,9 +9,11 @@ const SETTINGS = path.join(os.homedir(), '.claude', 'settings.json');
 const HOOK_SCRIPT = path.resolve(__dirname, '..', 'hooks', 'dusk-hook.js');
 const MARK = 'dusk-hook.js';
 const EVENTS = [
-  'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse',
-  'PermissionRequest', 'Notification', 'Stop', 'SessionEnd',
+  'SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure',
+  'PermissionRequest', 'PermissionDenied', 'Notification', 'SubagentStart',
+  'Elicitation', 'ElicitationResult', 'Stop', 'StopFailure', 'SessionEnd',
 ];
+const TOOL_EVENTS = new Set(['PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'PermissionRequest', 'PermissionDenied']);
 
 function nodeBin() {
   // 从 Electron 里调用时 execPath 是 Electron，本身也能当 node 跑，但这里要的是系统 node
@@ -52,13 +54,20 @@ function isInstalled(settings = read()) {
   return JSON.stringify(settings.hooks || {}).includes(MARK);
 }
 
+// 装过、但缺了新版本才有的事件 → 需要重装
+function isOutdated(settings = read()) {
+  if (!isInstalled(settings)) return false;
+  const hooks = settings.hooks || {};
+  return EVENTS.some((ev) => !JSON.stringify(hooks[ev] || []).includes(MARK));
+}
+
 function install() {
   const settings = strip(read());
   settings.hooks = settings.hooks || {};
   const command = `"${nodeBin()}" "${HOOK_SCRIPT}"`;
   for (const ev of EVENTS) {
     const group = { hooks: [{ type: 'command', command, async: true, timeout: 5 }] };
-    if (ev === 'PreToolUse' || ev === 'PostToolUse') group.matcher = '*';
+    if (TOOL_EVENTS.has(ev)) group.matcher = '*';
     settings.hooks[ev] = [...(settings.hooks[ev] || []), group];
   }
   write(settings);
@@ -70,7 +79,7 @@ function uninstall() {
   write(strip(settings));
 }
 
-module.exports = { install, uninstall, isInstalled };
+module.exports = { install, uninstall, isInstalled, isOutdated };
 
 if (require.main === module) {
   const cmd = process.argv[2];

@@ -477,7 +477,7 @@ async function tick({ heavy = false } = {}) {
     const since = Date.now() - monitor.lastHeavy;
     const panelOpen = panel && panel.isVisible();
     const doHeavy = heavy || since >= HEAVY_MS || (panelOpen && since >= HEAVY_PANEL_MS);
-    const snap = await monitor.tick(sysIdle, config, { heavy: doHeavy && !away });
+    const snap = await monitor.tick(config, { heavy: doHeavy && !away });
     lastSnapshot = snap;
     if (!away && petState(snap) === 'roam') startRoam();
     else if (roam) endRoam();
@@ -663,6 +663,7 @@ app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) app.dock.hide();
   saveConfig();
   syncAutoStart();
+  if (hooks.isOutdated()) hooks.install(); // 钩子装过但是旧版：补上新事件（会先备份 settings.json）
   createPet();
   createBubble();
   createPanel();

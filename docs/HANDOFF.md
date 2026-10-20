@@ -14,7 +14,7 @@
   - `9f46a5c` 对话识别、用量校准、闲逛模式
   - `e4bc453` 性能优化（CPU 从约 170% 降到约 12%，离开时 0.7%）
   - 之后：黍「国家图书馆 · 源远流长」+ fetch_model.py 支持 `gh:` 从其他仓库下载 + 这份交接文档
-- 桌宠由开机启动项运行，当前角色是若叶睦（提线的本我）。
+- 桌宠由开机启动项运行，当前角色是黍（国家图书馆 · 源远流长）。
 
 ## 功能一览
 
@@ -42,7 +42,8 @@ src/plan.js          用量百分比：官方数据 + 本机估算（Code 输出
 src/characters.js    角色列表、服装正式名、印章字、各角色台词（主进程和页面共用）
 src/actions.js       拖放文件的三种投递方式
 src/renderer/        pet（Spine 播放 + 特效）、bubble（毛玻璃气泡）、panel（工作台）、inspect.html（开发用）
-hooks/dusk-hook.js   Claude Code 钩子，写 ~/.claude/dusk-pet/events/<session>.json
+hooks/dusk-hook.js   Claude Code 钩子，写 ~/.claude/dusk-pet/events/<session>.json 和 events/waits/（等你确认的待办）
+hooks/wait-key.js    待办的配对键（工具名 + 主要参数）和提示文字
 scripts/hooks.js     钩子安装/卸载（会先备份 ~/.claude/settings.json）
 scripts/fetch_model.py  下载模型并改名为 model.*
 assets/models/<key>/ 模型（版权归鹰角，只能本地自用，不要推到公开仓库）
@@ -59,6 +60,7 @@ assets/models/<key>/ 模型（版权归鹰角，只能本地自用，不要推�
 ## 关键做法和踩过的坑
 
 - **对话检测**：普通对话没有本地日志，只能从外部判断。回复时每秒稳定收到 0.6–1 KB、几乎不上行；切页面是大块突发。`nettop` 必须挂在 `sleep 2147483646 | script` 这条真管道上：给 `/dev/null` 会空转（这是 138% CPU 的来源），给 Node 的 pipe 会让 `script` 直接退出。启动时会按进程组清掉孤儿进程。
+- **测试脚本加载 `src/chat.js`**：它加载时会清理孤儿 nettop。2026-10-20 之前不看父进程，测试脚本一加载就会把桌宠自己那组杀掉，而且被信号杀掉后不会重启。现在只清 ppid=1 的组，被杀后下次列进程（≤60 秒）会自动拉起。
 - **用量**：Ark-Models / 本机日志里都没有官方百分比。官方数字靠桌面版自己的记录；两次记录之间靠估算，界面上标「≈」。
 - **性能**：20 帧定时器渲染，不用 requestAnimationFrame；SVG 特效不用 CSS 动画（隐藏时也会按 120Hz 重绘）；ps/lsof 后台每 60 秒、面板开着时每 3 秒跑一次。
 - **加角色**：用 arknights-pet-models skill。新时装可能 Ark-Models 还没收录，可以去 HellaOrg/HellaAssets 等仓库找，用 `gh:` 写法下载。
@@ -69,7 +71,7 @@ assets/models/<key>/ 模型（版权归鹰角，只能本地自用，不要推�
 ## 已知限制 / 可以继续做的
 
 - Cowork 任务在虚拟机里跑，目前识别不到。
-- 「等你确认」：批准权限后要等工具跑完才有下一个事件，所以用了「超过 1 分钟且你动过键鼠就当已批准」的推断。
+- 「等你确认」：批准本身没有事件。2026-10-20 改成按证据判断（同工具的 PostToolUse、SubagentStart、Bash 新子进程、日志里的结果/中断、进程退出），去掉了旧的「超过 1 分钟且动过键鼠就当已批准」——它会在你没看到提示、正忙别的事时误判成处理中。还剩的盲区：批准后跑得很久、又不是 Bash 或 Agent 的工具（比如很慢的 MCP 调用），要等它跑完才切回处理中。权限请求在桌面版里是否真的触发 `PermissionRequest` 钩子，只从 Claude Code 程序代码里确认过，模拟测试全过，但还没有用真实弹窗实测过。
 - 对话识别的阈值只用一次实测标定过；没测过「扩展思考」模式的回复。
 - 用量估算在官方数据过时、又有大量网页版或手机端对话时会偏低。
 - 闲逛过的角色台词、印章字都在 `characters.js`，加新角色时记得写一套原创台词（不要照搬游戏语音）。

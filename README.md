@@ -37,7 +37,7 @@ cd ~/claude/dusk-pet && npm start
 | 常态 | Relax 待机（偶尔变出小凳子坐下摸鱼） | 默认 |
 | 处理中 | Sit 坐下来专心干活，头顶冒墨点 | 任意 Claude Code 会话在跑 |
 | 一段时间不操作 | 闲逛：在原位左右约 240 像素内慢慢走走停停，停下时随机发呆、伸懒腰或做特殊动作；你一动鼠标，她就走回原位 | 键鼠闲置超过 3 分钟（可调），或 Claude 和她都 20 分钟没人理 |
-| 等你确认 | Interact + 红色「!」 | 有会话在等你批准权限（会发系统通知） |
+| 等你确认 | Interact + 红色「!」 | 有会话在等你批准权限、回答提问或过目计划（会发系统通知，工作台里写明在等什么） |
 | 完成 | Interact 一次 + 盖「夕」印章 | 会话刚答完 |
 | 拖文件经过 | Interact + 闪光 | 拖着文件悬停在她身上 |
 
@@ -55,7 +55,14 @@ cd ~/claude/dusk-pet && npm start
 
 ## 数据来源
 
-- **会话状态**：Claude Code 钩子（`hooks/dusk-hook.js`，写入 `~/.claude/dusk-pet/events/`）加上会话日志的写入时间。安装和卸载都在右键菜单里完成，或者用 `npm run install-hooks` / `npm run uninstall-hooks`。改动 `~/.claude/settings.json` 前会先备份，其他钩子原样保留。
+- **会话状态**：Claude Code 钩子（`hooks/dusk-hook.js`，写入 `~/.claude/dusk-pet/events/`）加上会话日志的写入时间。安装和卸载都在右键菜单里完成，或者用 `npm run install-hooks` / `npm run uninstall-hooks`。改动 `~/.claude/settings.json` 前会先备份，其他钩子原样保留。桌宠启动时如果发现装的是旧版钩子（缺新事件），会自动重装。
+- **「等你确认」**：Claude Code 弹出权限请求时（`PermissionRequest`，MCP 要你填信息时是 `Elicitation`），钩子在 `events/waits/` 里单独记一条待办，和「最近一次事件」分开存：钩子是异步跑的，`PreToolUse` 和 `PermissionRequest` 几乎同时触发，存在一起会互相覆盖。你点批准这件事本身没有任何事件，所以按证据判断这条待办结束了没有：
+  - 同一个工具的 `PostToolUse` / `PostToolUseFailure`、子代理启动（`SubagentStart`，说明 Agent 工具被批准了）、新的一轮或本轮结束 → 钩子直接删掉待办
+  - Bash：claude 进程下面冒出了请求之后才有的新 shell 子进程（命令行带 `shell-snapshots`）→ 你批准了、命令正在跑，2 秒内切回「处理中」
+  - 会话日志里这次调用有了结果（批准后跑完，或者被你拒绝）；出现「中断」标记 → 空闲
+  - claude 进程已经退出
+  
+  `PermissionRequest` 的输入里没有 tool_use_id，所以请求、结果、日志里的调用靠「工具名 + 主要参数（命令 / 文件 / 网址）」配对，见 `hooks/wait-key.js`。另外，处理中按了停止不会有 `Stop` 钩子，也靠日志里的「中断」标记回到空闲。
 - **「对话」标签页**：普通对话在 App 的网页里直接接收回复，本机没有日志，也没有「正在回复」的信号。所以夕用 `nettop` 看 App 网络进程每秒收到的字节，再结合窗口渲染进程的 CPU：回复时是每秒稳定 0.6–1 KB 的下行、几乎不上行，持续好几秒；切页面则是大块突发。阈值来自 2026-10-15 的实测，见 `src/chat.js`。每次回复的起止时间记在 `~/.claude/dusk-pet/chat-activity.json`，用于估算用量。
 - **用量（百分比）**：5 小时额度和本周额度的「已用 / 剩余」百分比。官方数据来自 Claude 桌面版自己记录的 `~/Library/Application Support/Claude/plan-usage-history.json`。桌面版启动时会抓一次用量，之后只有在过去 24 小时内点开过菜单栏里的 Claude 图标时，才会每 15 分钟（你在用时每 5 分钟）在后台刷新；数据过时的话，面板会提示你点一下那个图标。两次官方数据之间，按本机 Code 的输出 token 加上对话的回复时长往后推算，比例用官方读数自动校准，界面上标「≈」。DeepSeek 等第三方模型不计入 Claude 额度。重置时间来自 `~/.claude/dusk-pet/config.json` 里的 `weeklyResetAt` / `fiveHourResetAt`。`~/.claude/dusk-pet/plan-samples.json` 可以补充额外的官方读数，例如设置里「Usage」页面的截图数字。
 - **进程**：`ps` + `lsof` 找出 `claude` 进程及其工作目录，另外汇总 Claude.app 的 CPU 和内存。
@@ -86,6 +93,7 @@ src/usage.js         jsonl 增量解析与用量汇总
 src/actions.js       拖放文件的三种投递方式
 src/renderer/        桌宠（Spine 播放）、毛玻璃气泡与工作台面板
 hooks/dusk-hook.js   Claude Code 钩子
+hooks/wait-key.js    「等你确认」待办的配对键和提示文字（钩子和桌宠共用）
 scripts/hooks.js     钩子安装和卸载
 assets/models/<角色>/ 官方 Spine 模型 model.skel/atlas/png（来自 isHarryh/Ark-Models，版权归鹰角网络，仅限个人使用）
 src/characters.js    角色列表与各自台词
