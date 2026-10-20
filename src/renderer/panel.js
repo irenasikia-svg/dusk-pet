@@ -144,11 +144,11 @@ if (api) {
       last: { t: now - 18 * 60e3, fh: 8, sd: 74 },
     },
     sessions: [
-      { status: 'working', title: '夕桌宠开发', cwd: '/Users/kuumo/claude', model: 'Opus 5.5', mtime: now - 5e3, tool: 'Bash' },
-      { status: 'waiting', title: '整理笔记', cwd: '/Users/kuumo/notes', model: 'Opus 5.5', mtime: now - 60e3, hookMsg: '需要批准 Bash' },
-      { status: 'idle', title: '论文排版', cwd: '/Users/kuumo/paper', model: 'deepseek-v4-pro', mtime: now - 3 * 3600e3 },
+      { status: 'working', title: '夕桌宠开发', cwd: '/Users/demo/claude', model: 'Opus 5.5', mtime: now - 5e3, tool: 'Bash' },
+      { status: 'waiting', title: '整理笔记', cwd: '/Users/demo/notes', model: 'Opus 5.5', mtime: now - 60e3, hookMsg: '需要批准 Bash' },
+      { status: 'idle', title: '论文排版', cwd: '/Users/demo/paper', model: 'deepseek-v4-pro', mtime: now - 3 * 3600e3 },
     ],
-    procs: [{ pid: 30418, kind: 'desktop', cpu: 0.4, mem: 520e6, uptime: 9 * 60e3, cwd: '/Users/kuumo/claude', model: 'claude-opus-5-5' }],
+    procs: [{ pid: 30418, kind: 'desktop', cpu: 0.4, mem: 520e6, uptime: 9 * 60e3, cwd: '/Users/demo/claude', model: 'claude-opus-5-5' }],
     app: { pid: 28307, cpu: 27.9, mem: 3.1e9, uptime: 7 * 3600e3, helpers: 12 },
   });
 }

@@ -1,6 +1,6 @@
-# 明日方舟 Claude 桌宠 · 交接说明
+# 明日方舟 Claude 桌宠 · 给 AI agent 的项目说明
 
-> 写于 2026-10-20，用于在新的对话里接着做这个项目。新对话开头说一句「读一下 ~/claude/dusk-pet/docs/HANDOFF.md」就能接上。
+> 这是项目的 AGENTS.md：AI 编程助手（Claude Code、OpenCode 等）每次进入这个仓库都会先读它，不用再手动提醒。Claude Code 通过根目录的 `CLAUDE.md` 引用本文件。最后更新：2026-10-20。
 
 ## 一句话
 
@@ -8,12 +8,7 @@
 
 ## 当前状态
 
-- git 仓库，分支 `main`，所有改动都已提交，工作区干净：
-  - `0035596` 初版：夕的模型、状态联动、毛玻璃气泡、用量面板
-  - `f3034a4` 多角色和换角色菜单
-  - `9f46a5c` 对话识别、用量校准、闲逛模式
-  - `e4bc453` 性能优化（CPU 从约 170% 降到约 12%，离开时 0.7%）
-  - 之后：黍「国家图书馆 · 源远流长」+ fetch_model.py 支持 `gh:` 从其他仓库下载 + 这份交接文档
+- git 仓库，分支 `main`。提交历史用 `git log --oneline` 查看。主要里程碑：初版（夕的模型、状态联动、毛玻璃气泡、用量面板）→ 多角色和换角色菜单 → 对话识别、用量校准、闲逛模式 → 性能优化（CPU 从约 170% 降到约 12%）→「等你确认」按证据判断 → 准备公开（模型和截图移出仓库）。
 - 桌宠由开机启动项运行，当前角色是黍（国家图书馆 · 源远流长）。
 
 ## 功能一览
@@ -46,7 +41,7 @@ hooks/dusk-hook.js   Claude Code 钩子，写 ~/.claude/dusk-pet/events/<session
 hooks/wait-key.js    待办的配对键（工具名 + 主要参数）和提示文字
 scripts/hooks.js     钩子安装/卸载（会先备份 ~/.claude/settings.json）
 scripts/fetch_model.py  下载模型并改名为 model.*
-assets/models/<key>/ 模型（版权归鹰角，只能本地自用；已加进 .gitignore，GitHub 公开仓库里没有，也已从提交历史里清掉）
+assets/models/<key>/ 模型（版权归鹰角，只能本地自用；已加进 .gitignore，公开仓库及其提交历史里都没有）
 ```
 
 ## 本机上相关的文件
