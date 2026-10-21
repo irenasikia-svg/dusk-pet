@@ -181,6 +181,6 @@ class SpineChar {
     this.shader.unbind();
   }
 }
-// 20 帧：Q 版小人很流畅，比跟着屏幕刷新率（最高 120Hz）省很多
-SpineChar.FPS = 20;
+// 30 帧：比 20 帧顺滑，仍比跟着屏幕刷新率（最高 120Hz）省很多
+SpineChar.FPS = 30;
 window.SpineChar = SpineChar;

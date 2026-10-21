@@ -5,5 +5,7 @@ node_modules/
 # 鹰角的游戏美术资源只能本地自用，不进仓库（见 README「准备模型」）
 assets/models/
 assets/dusk/
+# 游戏台词（scripts/voices.js 生成）同样只在本地用
+assets/voices.js
 # 截图里有角色形象，同样只留在本地
 docs/*.png

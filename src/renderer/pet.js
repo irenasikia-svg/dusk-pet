@@ -14,8 +14,18 @@ const ANIM = {
 };
 
 const CHAR = Characters.byKey(new URLSearchParams(location.search).get('char') || 'dusk');
-const LINES = CHAR.lines;
+// 点击台词优先用游戏原台词（assets/voices.js，由 scripts/voices.js 生成），没有就用 characters.js 里的
+const VOICE = (window.VOICES || {})[CHAR.charId] || {};
+const LINES = { ...CHAR.lines };
+for (const g of ['poke', 'combo']) if (VOICE[g] && VOICE[g].length) LINES[g] = VOICE[g];
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
+let lastLine = '';
+const pickNew = (a) => { // 不连着说同一句
+  let t = pick(a);
+  for (let i = 0; i < 4 && t === lastLine && a.length > 1; i++) t = pick(a);
+  return (lastLine = t);
+};
+const readMs = (t) => Math.min(11000, 2000 + t.length * 110); // 游戏台词长，按字数多留一会儿
 
 let realState = 'normal';
 let override = null; // 拖文件经过 / 拖动时的临时形象
@@ -166,9 +176,8 @@ if (api) {
 }
 render();
 
-// —— 鼠标：拖动 / 单击开面板 / 双击开 Claude / 右键菜单 ——
+// —— 鼠标：拖动 / 点她互动 / 右键菜单（工作台、打开 Claude 都在菜单里） ——
 let down = null;
-let clickTimer = null;
 canvas.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   down = { x: e.screenX, y: e.screenY, lastX: e.screenX, moved: false };
@@ -191,25 +200,42 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', () => {
   if (!down) return;
-  const wasClick = !down.moved;
+  const click = !down.moved;
   down = null;
   canvas.classList.remove('dragging');
   if (override === 'drag') { override = null; render(); }
   api && api.dragEnd();
-  if (!wasClick) return;
-  if (clickTimer) { // 双击：打开 Claude
-    clearTimeout(clickTimer); clickTimer = null;
-    api && api.openClaude();
-    return;
-  }
-  clickTimer = setTimeout(() => {
-    clickTimer = null;
-    if (dusk && realState === 'normal') dusk.play('Interact', { loop: false, then: 'Relax' });
-    api && api.togglePanel();
-    const q = info.five;
-    say(q && q.used != null ? `5 小时已用 ${q.estimated ? '≈' : ''}${q.used}% · 剩余 ${q.remaining}%` : '点开工作台看看用量');
-  }, 260);
+  if (click) poke();
 });
+
+// 点她：像基建里点干员那样做个互动动作、说句话；1 秒内连着戳，第 3 下起换一套反应
+const pokes = { n: 0, at: 0 };
+function poke() {
+  api && api.interact();
+  const now = performance.now();
+  pokes.n = now - pokes.at < 1000 ? pokes.n + 1 : 1;
+  pokes.at = now;
+  const combo = pokes.n >= 3 && pokes.n % 4 === 3; // 第 3、7、11……下
+  const state = override || realState;
+  if (state === 'drag' || state === 'catch') return;
+  const line = pokes.n === 1 ? pickNew(LINES.poke || LINES.normal) : combo ? pickNew(LINES.combo || LINES.normal) : null;
+  if (line) say(line, readMs(line));
+  if (!dusk || (state === 'roam' && act && act.anim === 'Move')) return; // 走路时窗口在移动，不换动作免得滑步
+  if (combo) react(state === 'normal' && dusk.specialFits ? 'Special' : 'Interact', true);
+  else react('Interact', false);
+}
+
+// 播一次动作，做完回到当前状态该有的动作；上一个一次性动作没做完一半就不打断（连点时不会一直卡在第一帧）
+function react(anim, force) {
+  const cur = dusk.state.getCurrent(0);
+  if (!force && cur && !cur.loop && cur.trackTime < cur.animation.duration * 0.5) return;
+  const state = realState;
+  const back = state === 'roam' ? (act && !act.once && act.anim) || 'Relax'
+    : state === 'done' ? 'Relax' : params.get('anim') || ANIM[state] || 'Relax';
+  dusk.current = null;
+  dusk.play(anim, { loop: false, then: back });
+}
+
 window.addEventListener('contextmenu', (e) => { e.preventDefault(); api && api.menu(); });
 canvas.addEventListener('mouseenter', () => api && api.interact());
 

@@ -1,6 +1,7 @@
 // 可切换的角色（模型在 assets/models/<key>/model.*，来自 isHarryh/Ark-Models）
 // 主进程用 require，渲染进程用 <script> 引入，两边共用这一份
 (function (root) {
+  // poke＝点她一下，combo＝连着戳。有 assets/voices.js（scripts/voices.js 从游戏数据生成）时，这两项改用游戏台词
   const LINES = {
     夕: {
       normal: ['今天想画点什么？', '有文件就丢给我。', '嗯……灵感还没来。', '别光看，我可不是摆设。'],
@@ -10,6 +11,8 @@
       roam: ['四处走走，找找灵感。', '（边走边打腹稿）', '这边的景致……也就那样。'],
       wake: ['回来了？我也逛够了。', '刚才去取景了。'],
       catch: ['给我的？', '松手吧，我接着。'],
+      poke: ['嗯？', '找我作画？', '别戳，墨要洒了。', '有话直说。'],
+      combo: ['再戳就把你画进画里。', '……你很闲？', '够了够了，笔都歪了。'],
     },
     黍: {
       normal: ['今天的稻子长得不错。', '饿了吗？我去做点吃的。', '有文件就交给我吧。'],
@@ -19,6 +22,8 @@
       roam: ['去田边转转。', '（哼着小曲散步）', '今天风真舒服。'],
       wake: ['回来啦，我在附近转了转。', '忙完了吗？'],
       catch: ['给我的？', '放这儿吧。'],
+      poke: ['怎么了？', '饿了吗？', '嗯，我在呢。', '要帮忙吗？'],
+      combo: ['好啦好啦，别闹。', '再闹就去田里帮忙。', '呵呵，这么有精神。'],
     },
     蕾缪安: {
       normal: ['今天也辛苦了。', '有什么需要，尽管说。', '要吃点甜的吗？'],
@@ -28,6 +33,8 @@
       roam: ['出去透透气。', '（悠闲地转着轮椅）', '阳光正好呢。'],
       wake: ['啊，你回来了。', '刚才去巡视了一圈。'],
       catch: ['交给我吧。', '接住了。'],
+      poke: ['嗯？叫我吗？', '我在哦。', '有事吗？', '要来点甜点吗？'],
+      combo: ['哎呀，好痒。', '再这样我要瞄准你了哦。', '你今天心情不错呢。'],
     },
     若叶睦: {
       normal: ['……', '……嗯。', '有事吗。'],
@@ -37,6 +44,8 @@
       roam: ['……散步。', '（抱着吉他慢慢走）', '……'],
       wake: ['……回来了。', '……嗯。'],
       catch: ['……给我？', '……收到。'],
+      poke: ['……？', '……嗯？', '……在。'],
+      combo: ['……别戳。', '……', '……痒。'],
     },
     丰川祥子: {
       normal: ['今天也要从容地工作。', '有什么吩咐？', '把文件交给我。'],
@@ -46,6 +55,8 @@
       roam: ['稍微活动一下。', '（踱步构思下一场演出）', '……'],
       wake: ['你回来了，继续吧。', '刚才在构思。'],
       catch: ['交给我。', '我收下了。'],
+      poke: ['有何吩咐？', '嗯？', '请说。'],
+      combo: ['请注意分寸。', '……真是的，适可而止。', '这可不在演出安排里。'],
     },
     缄默德克萨斯: {
       normal: ['……', '有事就说。', '要来根百奇吗？'],
@@ -55,6 +66,8 @@
       roam: ['出去转一圈。', '（叼着百奇闲逛）', '……'],
       wake: ['回来了。', '嗯，继续。'],
       catch: ['给我？', '收到。'],
+      poke: ['……什么事。', '嗯？', '说。'],
+      combo: ['……够了。', '再戳就没百奇了。', '……你很无聊吗。'],
     },
     缪尔赛思: {
       normal: ['今天的水质很不错哦。', '有文件？丢给我吧~', '要不要一起去看看小溪？'],
@@ -64,6 +77,8 @@
       roam: ['去看看附近的花草~', '（边走边做记录）', '今天也是观察日！'],
       wake: ['哎呀，你回来啦~', '刚才采样去了。'],
       catch: ['给我的？谢谢~', '接住啦！'],
+      poke: ['嗯？有新发现？', '叫我吗~', '在这儿呢~'],
+      combo: ['哈哈，别闹啦~', '这是什么新实验吗？', '再戳我就派分身去戳你！'],
     },
     遥: {
       normal: ['今天天气真好。', '需要帮忙吗？', '有文件就交给我。'],
@@ -73,6 +88,8 @@
       roam: ['随便走走。', '（四处看看）', '嗯……今天天气不错。'],
       wake: ['啊，你回来了。', '我就在附近。'],
       catch: ['给我的吗？', '收到。'],
+      poke: ['嗯？怎么了？', '在的。', '有什么事吗？'],
+      combo: ['那、那个……别一直戳啦。', '好啦，我在听。', '是有什么急事吗？'],
     },
     结城理: {
       normal: ['……', '嗯。', '有事吗。'],
@@ -82,24 +99,27 @@
       roam: ['……随便走走。', '（戴着耳机闲逛）', '……'],
       wake: ['……回来了。', '嗯。'],
       catch: ['给我？', '收到。'],
+      poke: ['……？', '嗯。', '……什么事。'],
+      combo: ['……随便吧。', '……别戳了。', '（摘下一边耳机）……有事？'],
     },
   };
 
+  // charId：游戏里的干员编号，用来查游戏台词
   const CHARACTERS = [
-    { key: 'dusk', name: '夕', skin: '0011制造/VI · 染尘烟', seal: '夕' },
-    { key: 'shu', name: '黍', skin: '默认服装', seal: '黍' },
-    { key: 'shu_nian11', name: '黍', skin: '0011制造/XI · 春日宴', seal: '黍' },
-    { key: 'shu_nlc', name: '黍', skin: '国家图书馆 · 源远流长', seal: '黍' },
-    { key: 'lemuen', name: '蕾缪安', skin: '默认服装', seal: '蕾' },
-    { key: 'lemuen_ambience', name: '蕾缪安', skin: '音律联觉/VIII · 暮星安魂曲', seal: '蕾' },
-    { key: 'mortis', name: '若叶睦', skin: '默认服装', seal: '睦' },
-    { key: 'mortis_avemujica', name: '若叶睦', skin: 'Ave Mujica · 提线的本我', seal: '睦' },
-    { key: 'sakiko_avemujica', name: '丰川祥子', skin: 'Ave Mujica · 旋律的主人', seal: '祥' },
-    { key: 'texas2', name: '缄默德克萨斯', skin: '默认服装', seal: '德' },
-    { key: 'muelsyse', name: '缪尔赛思', skin: '默认服装', seal: '缪' },
-    { key: 'haruka', name: '遥', skin: '默认服装', seal: '遥' },
-    { key: 'haruka_iteration', name: '遥', skin: '命途迭代/VI · 常世之幻', seal: '遥' },
-    { key: 'makoto_p3r', name: '结城理', skin: '女神异闻录３ Reload · 见证荣光', seal: '理' },
+    { key: 'dusk', charId: 'char_2015_dusk', name: '夕', skin: '0011制造/VI · 染尘烟', seal: '夕' },
+    { key: 'shu', charId: 'char_2025_shu', name: '黍', skin: '默认服装', seal: '黍' },
+    { key: 'shu_nian11', charId: 'char_2025_shu', name: '黍', skin: '0011制造/XI · 春日宴', seal: '黍' },
+    { key: 'shu_nlc', charId: 'char_2025_shu', name: '黍', skin: '国家图书馆 · 源远流长', seal: '黍' },
+    { key: 'lemuen', charId: 'char_4193_lemuen', name: '蕾缪安', skin: '默认服装', seal: '蕾' },
+    { key: 'lemuen_ambience', charId: 'char_4193_lemuen', name: '蕾缪安', skin: '音律联觉/VIII · 暮星安魂曲', seal: '蕾' },
+    { key: 'mortis', charId: 'char_4183_mortis', name: '若叶睦', skin: '默认服装', seal: '睦' },
+    { key: 'mortis_avemujica', charId: 'char_4183_mortis', name: '若叶睦', skin: 'Ave Mujica · 提线的本我', seal: '睦' },
+    { key: 'sakiko_avemujica', charId: 'char_4182_oblvns', name: '丰川祥子', skin: 'Ave Mujica · 旋律的主人', seal: '祥' },
+    { key: 'texas2', charId: 'char_1028_texas2', name: '缄默德克萨斯', skin: '默认服装', seal: '德' },
+    { key: 'muelsyse', charId: 'char_249_mlyss', name: '缪尔赛思', skin: '默认服装', seal: '缪' },
+    { key: 'haruka', charId: 'char_4202_haruka', name: '遥', skin: '默认服装', seal: '遥' },
+    { key: 'haruka_iteration', charId: 'char_4202_haruka', name: '遥', skin: '命途迭代/VI · 常世之幻', seal: '遥' },
+    { key: 'makoto_p3r', charId: 'char_4217_makoto', name: '结城理', skin: '女神异闻录３ Reload · 见证荣光', seal: '理' },
   ].map((c) => ({ ...c, lines: LINES[c.name] }));
 
   const byKey = (key) => CHARACTERS.find((c) => c.key === key) || CHARACTERS[0];

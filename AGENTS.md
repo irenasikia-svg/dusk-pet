@@ -23,7 +23,7 @@
 | 气泡 | 独立的 macOS 原生毛玻璃窗口（vibrancy: popover），跟着她移动 |
 | 工作台 | 纯白；用量（5 小时 / 本周的已用和剩余百分比、重置时间）、会话列表（含「Claude 对话」）、进程 |
 | 拖放文件 | 新开对话（官方 `claude://code/new?file=…` 深链）/ 加到当前对话（剪贴板 + ⌘V，需要「辅助功能」权限）/ 终端 CLI；⌥＝当前对话，⇧＝终端 |
-| 交互 | 单击开工作台，双击打开 Claude，拖动搬家，右键设置菜单 |
+| 交互 | 单击/连点＝互动（互动动作 + 游戏台词，连点第 3 下起换反应），拖动搬家，右键菜单（含工作台、打开 Claude） |
 | 开机自启 | `~/Library/LaunchAgents/local.dusk-pet.plist`，菜单里可关 |
 
 ## 代码结构
@@ -41,6 +41,7 @@ hooks/dusk-hook.js   Claude Code 钩子，写 ~/.claude/dusk-pet/events/<session
 hooks/wait-key.js    待办的配对键（工具名 + 主要参数）和提示文字
 scripts/hooks.js     钩子安装/卸载（会先备份 ~/.claude/settings.json）
 scripts/fetch_model.py  下载模型并改名为 model.*
+scripts/voices.js    从 ~/.cache/arknights-pet/charword_table.json 抽取点击台词 → assets/voices.js（本地，不进仓库）
 assets/models/<key>/ 模型（版权归鹰角，只能本地自用；已加进 .gitignore，公开仓库及其提交历史里都没有）
 ```
 
@@ -57,7 +58,7 @@ assets/models/<key>/ 模型（版权归鹰角，只能本地自用；已加进 .
 - **对话检测**：普通对话没有本地日志，只能从外部判断。回复时每秒稳定收到 0.6–1 KB、几乎不上行；切页面是大块突发。`nettop` 必须挂在 `sleep 2147483646 | script` 这条真管道上：给 `/dev/null` 会空转（这是 138% CPU 的来源），给 Node 的 pipe 会让 `script` 直接退出。启动时会按进程组清掉孤儿进程。
 - **测试脚本加载 `src/chat.js`**：它加载时会清理孤儿 nettop。2026-10-20 之前不看父进程，测试脚本一加载就会把桌宠自己那组杀掉，而且被信号杀掉后不会重启。现在只清 ppid=1 的组，被杀后下次列进程（≤60 秒）会自动拉起。
 - **用量**：Ark-Models / 本机日志里都没有官方百分比。官方数字靠桌面版自己的记录；两次记录之间靠估算，界面上标「≈」。
-- **性能**：20 帧定时器渲染，不用 requestAnimationFrame；SVG 特效不用 CSS 动画（隐藏时也会按 120Hz 重绘）；ps/lsof 后台每 60 秒、面板开着时每 3 秒跑一次。
+- **性能**：30 帧定时器渲染（2026-10-21 从 20 帧提上来，CPU 约多一半），不用 requestAnimationFrame；SVG 特效不用 CSS 动画（隐藏时也会按 120Hz 重绘）；ps/lsof 后台每 60 秒、面板开着时每 3 秒跑一次。
 - **加角色**：用 arknights-pet-models skill。新时装可能 Ark-Models 还没收录，可以去 HellaOrg/HellaAssets 等仓库找，用 `gh:` 写法下载。
 - **验证**：一定要在真实 Electron 里截图确认，浏览器预览只能看个大概。
 - **调试环境变量**：`DUSK_DEBUG_DIR`、`DUSK_DEBUG_STATE`、`DUSK_DEBUG_AWAY`、`DUSK_DEBUG_PROFILE`、`DUSK_DEBUG_EXEC`、`DUSK_DEBUG_MENU`（说明见 README「性能与刷新节奏」）。
@@ -69,7 +70,7 @@ assets/models/<key>/ 模型（版权归鹰角，只能本地自用；已加进 .
 - 「等你确认」：批准本身没有事件。2026-10-20 改成按证据判断（同工具的 PostToolUse、SubagentStart、Bash 新子进程、日志里的结果/中断、进程退出），去掉了旧的「超过 1 分钟且动过键鼠就当已批准」——它会在你没看到提示、正忙别的事时误判成处理中。还剩的盲区：批准后跑得很久、又不是 Bash 或 Agent 的工具（比如很慢的 MCP 调用），要等它跑完才切回处理中。权限请求在桌面版里是否真的触发 `PermissionRequest` 钩子，只从 Claude Code 程序代码里确认过，模拟测试全过，但还没有用真实弹窗实测过。
 - 对话识别的阈值只用一次实测标定过；没测过「扩展思考」模式的回复。
 - 用量估算在官方数据过时、又有大量网页版或手机端对话时会偏低。
-- 闲逛过的角色台词、印章字都在 `characters.js`，加新角色时记得写一套原创台词（不要照搬游戏语音）。
+- 闲逛过的角色台词、印章字都在 `characters.js`，加新角色时记得写一套原创台词（状态台词不要照搬游戏语音）；点击台词（poke 单击、combo 连点）用户要游戏原台词：给新角色在 CHARACTERS 里填 `charId`，再跑 `node scripts/voices.js` 重新生成 `assets/voices.js`（本地文件，已 gitignore，绝不能提交），characters.js 里仍要写一套 poke/combo 作为没有台词文件时的后备。
 
 ## 用户偏好
 

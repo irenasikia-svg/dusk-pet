@@ -379,7 +379,7 @@ function roamWalk(targetCx, speed, onArrive) {
   roam.flip = dir < 0; // 模型默认朝右，往左走要翻过来；停下来也保持朝向
   sendAct({ anim: 'Move', flip: roam.flip });
   const v = (speed || ROAM_SPEED) * s;
-  const stepMs = 1000 / 20;
+  const stepMs = 1000 / 30; // 和渲染帧率一致
   const walk = setInterval(() => {
     if (!roam || roam.walk !== walk) { clearInterval(walk); return; }
     x += (dir * v * stepMs) / 1000;

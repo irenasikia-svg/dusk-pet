@@ -61,9 +61,17 @@ python3 scripts/fetch_model.py \
 
 `<key>` 要和 `src/characters.js` 里的一致；没下载的角色在「换角色」里选了会是空白。
 
+**游戏台词（可选）**：点她时说的话可以用游戏原台词。台词同样版权归鹰角、不进仓库。先把 [Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) 的 `zh_CN/gamedata/excel/charword_table.json`（约 11 MB）下载到 `~/.cache/arknights-pet/`，再运行：
+
+```bash
+node scripts/voices.js
+```
+
+会生成 `assets/voices.js`：单击用「交谈」系列，连点用「戳一下」「信赖触摸」。没有这个文件时，用 `src/characters.js` 里写的台词。
+
 ## 启动
 
-双击 `启动夕.command`，或者：
+双击 `pet launch.command`，或者：
 
 ```bash
 npm install   # 第一次运行前安装依赖
@@ -89,8 +97,9 @@ npm start
 
 ## 操作
 
-- **单击**：打开工作台（会话 · 进程 · 用量）
-- **双击**：打开 Claude，继续最近会话
+- **单击**：像基建里点干员那样互动：做个互动动作、说一句游戏台词
+- **连点**：1 秒内连着戳，第 3 下起换成「戳一下」「信赖触摸」的台词；常态下有特殊动作的角色会做特殊动作
+- 工作台、打开 Claude 都在**右键菜单**里（点菜单栏图标也能开工作台）
 - **拖动**：拖着走，她会朝拖动方向走路
 - **右键**：设置菜单（大小、睡觉时长、拖放默认行为、预览形象、钩子开关……）
 - **把文件拖给她**：弹出选项
@@ -125,7 +134,7 @@ npm start
 | 你离开（键鼠 10 分钟没动或锁屏） | 约 0.5% |
 
 - **对话检测**：`nettop` 必须挂在一条 `sleep | script` 真管道上运行。stdin 给 `/dev/null` 会让它空转，给 Node 的 socket 会让 `script` 直接退出。启动时会按进程组清掉上次崩溃留下的孤儿进程。
-- **渲染**：不用 `requestAnimationFrame`，改用定时器限帧到 20 帧。关闭了多重采样抗锯齿。状态特效不用 CSS 动画（SVG 上的 CSS 动画即使隐藏也会按 120Hz 重绘），改由同一个帧循环更新。
+- **渲染**：不用 `requestAnimationFrame`，改用定时器限帧到 30 帧（实测比 20 帧多用约一半 CPU：同一角色在处理中状态，20 帧约 13–15%，30 帧约 20–26%）。关闭了多重采样抗锯齿。状态特效不用 CSS 动画（SVG 上的 CSS 动画即使隐藏也会按 120Hz 重绘），改由同一个帧循环更新。
 - **刷新**：每 2 秒只做便宜的状态检查（钩子事件、会话日志增量、对话检测）。列进程、`lsof`、算用量和额度这些重活，后台每 60 秒做一次；面板开着时每 3 秒一次，点开面板时立刻刷新。
 - **离开模式**：暂停动画、闲逛和对话检测，状态检查改为每 10 秒一次；你回来就恢复。
 - 调试用环境变量：`DUSK_DEBUG_DIR`（截图与记录）、`DUSK_DEBUG_STATE`（强制状态）、`DUSK_DEBUG_AWAY`（强制离开模式）、`DUSK_DEBUG_PROFILE`（桌宠页 CPU 采样）、`DUSK_DEBUG_EXEC`（在桌宠页执行脚本）。
