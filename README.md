@@ -30,14 +30,19 @@
 
 | 角色 | 服装 |
 |---|---|
-| 夕 | 0011制造/VI · 染尘烟 |
+| 夕 | 默认服装、0011制造/VI · 染尘烟、0011制造/XII · 青玉砚 |
+| 年 | 0011制造/III · 乐逍遥、中国电影资料馆 · 霹雳导演 |
 | 黍 | 默认服装、0011制造/XI · 春日宴、国家图书馆 · 源远流长 |
+| 令 | 默认服装、0011制造/VIII · 濯缨、0011制造/XII · 方遒卷 |
+| 望 | 默认服装 |
+| 新约能天使 | 默认服装、命途迭代/VI · 寻翼之歌 |
+| 维什戴尔 | 默认服装、忒斯特收藏/XV · 超新星、成就之星/IX · 绝对主角 |
 | 蕾缪安 | 默认服装、音律联觉/VIII · 暮星安魂曲 |
 | 若叶睦 | 默认服装、Ave Mujica · 提线的本我 |
 | 丰川祥子 | 默认服装、Ave Mujica · 旋律的主人 |
 | 克莱门莎 | 默认服装 |
 | 赤刃明霄陈 | 默认服装 |
-| 司霆惊蛰 | 成就之星/VIII · 血翼蔷薇 |
+| 司霆惊蛰 | 默认服装、成就之星/VIII · 血翼蔷薇 |
 | 缄默德克萨斯 | 默认服装 |
 | 缪尔赛思 | 默认服装 |
 | 遥 | 默认服装、命途迭代/VI · 常世之幻 |
@@ -47,17 +52,21 @@
 
 ## 准备模型
 
-角色模型是鹰角网络的游戏美术资源，版权归鹰角，**不包含在这个仓库里**，请自行下载到本地、仅限个人使用。需要 Python 3，下面这条命令会从 [isHarryh/Ark-Models](https://github.com/isHarryh/Ark-Models)（黍「源远流长」来自 [HellaOrg/HellaAssets](https://github.com/HellaOrg/HellaAssets)）下载全部 19 套，共约 21 MB，放进 `assets/models/<key>/`：
+角色模型是鹰角网络的游戏美术资源，版权归鹰角，**不包含在这个仓库里**，请自行下载到本地、仅限个人使用。需要 Python 3，下面这条命令会从 [isHarryh/Ark-Models](https://github.com/isHarryh/Ark-Models)（黍「源远流长」来自 [HellaOrg/HellaAssets](https://github.com/HellaOrg/HellaAssets)）下载全部 33 套，共约 37 MB，放进 `assets/models/<key>/`：
 
 ```bash
 python3 scripts/fetch_model.py \
-  dusk '2015_dusk_nian#7' \
+  dusk '2015_dusk_nian#7'  dusk_default 2015_dusk  dusk_nian12 '2015_dusk_nian#12' \
+  nian_nian4 '2014_nian_nian#4'  nian_cfa '2014_nian_cfa#1' \
+  angel2 1041_angel2  angel2_iteration '1041_angel2_iteration#6' \
+  ling 2023_ling  ling_nian9 '2023_ling_nian#9'  ling_nian12 '2023_ling_nian#12'  wang 2027_wang \
+  wisdel 1035_wisdel  wisdel_sale14 '1035_wisdel_sale#14'  wisdel_game9 '1035_wisdel_game#9' \
   shu 2025_shu  shu_nian11 '2025_shu_nian#11' \
   shu_nlc 'gh:HellaOrg/HellaAssets/spine/operator/build/build_char_2025_shu_nlc#1' \
   lemuen 4193_lemuen  lemuen_ambience '4193_lemuen_ambiencesynesthesia#7' \
   mortis 4183_mortis  mortis_avemujica '4183_mortis_avemujica#1' \
   sakiko 4182_oblvns  sakiko_avemujica '4182_oblvns_avemujica#1' \
-  clemnt 4231_clemnt  chen3 1050_chen3  leizi2_game '1043_leizi2_game#8' \
+  clemnt 4231_clemnt  chen3 1050_chen3  leizi2 1043_leizi2  leizi2_game '1043_leizi2_game#8' \
   texas2 1028_texas2  muelsyse 249_mlyss \
   haruka 4202_haruka  haruka_iteration '4202_haruka_iteration#6' \
   makoto 4217_makoto  makoto_p3r '4217_makoto_p3r#1'
