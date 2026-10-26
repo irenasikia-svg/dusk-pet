@@ -151,7 +151,8 @@ class SpineChar {
 
     this.state.update(dt);
     this.state.apply(this.skeleton);
-    this.skeleton.scaleX = this.flip ? -1 : 1;
+    // 转身不翻骨架（skeleton.scaleX = -1），改在投影里整体镜像：有些模型的骨骼不继承镜像
+    // （NoRotationOrReflection / NoScaleOrReflection，例如司霆惊蛰的脸），翻骨架时那部分会朝错方向
     this.skeleton.updateWorldTransform();
 
     // 让模型完整放进画布，底部对齐
@@ -162,12 +163,17 @@ class SpineChar {
     const scale = Math.max(bw / w, bh / h) * pad;
     const vw = w * scale;
     const vh = h * scale;
-    // 转身时取景也镜像，人物不会跳位
-    const cx = ((b.minX + b.maxX) / 2) * (this.flip ? -1 : 1);
+    const cx = (b.minX + b.maxX) / 2;
     const floor = Math.min(b.minY, this.floors[this.state.getCurrent(0)?.animation.name] ?? b.minY);
     this.viewBottom += (floor - this.viewBottom) * Math.min(1, dt * 4);
-    this.mvp.ortho2d(cx - vw / 2, this.viewBottom - vh * 0.015, vw, vh);
-    this.originX = (0 - (cx - vw / 2)) / vw; // 脚底中心在画布里的横向位置（0~1），给气泡定位用
+    const left = cx - vw / 2;
+    const right = cx + vw / 2;
+    const bottom = this.viewBottom - vh * 0.015;
+    // 镜像时把左右边界对调；取景跟着一起镜像，人物不会跳位
+    if (this.flip) this.mvp.ortho(right, left, bottom, bottom + vh, 0, 1);
+    else this.mvp.ortho(left, right, bottom, bottom + vh, 0, 1);
+    // 脚底中心在画布里的横向位置（0~1），给气泡定位用
+    this.originX = this.flip ? right / vw : -left / vw;
 
     gl.viewport(0, 0, w, h);
     gl.clearColor(0, 0, 0, 0);

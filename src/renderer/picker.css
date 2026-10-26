@@ -1,0 +1,49 @@
+/* 换角色列表：窗口是 macOS 原生菜单毛玻璃（vibrancy: menu），这里只负责内容。
+   系统右键菜单没法固定高度滚动，所以单独做成一个小弹层：最多显示 8 行，其余用滚轮滑动 */
+:root {
+  --label: rgba(0, 0, 0, .86);
+  --label-2: rgba(0, 0, 0, .45);
+  --hl: rgba(15, 154, 146, .9);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --label: rgba(255, 255, 255, .92);
+    --label-2: rgba(255, 255, 255, .5);
+    --hl: rgba(24, 169, 159, .9);
+  }
+}
+html, body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+  font: 13px/1 -apple-system, "SF Pro Text", "PingFang SC", sans-serif;
+  color: var(--label);
+}
+#list {
+  list-style: none;
+  margin: 0;
+  padding: 5px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  outline: none;
+}
+#list::-webkit-scrollbar { width: 0; }
+li {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px 0 4px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+li .check { width: 18px; text-align: center; font-size: 12px; }
+li .name { flex: none; }
+li .skin { margin-left: 6px; color: var(--label-2); overflow: hidden; text-overflow: ellipsis; }
+li.hl { background: var(--hl); color: #fff; }
+li.hl .skin { color: rgba(255, 255, 255, .78); }

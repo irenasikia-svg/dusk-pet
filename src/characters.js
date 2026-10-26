@@ -114,11 +114,16 @@
     { key: 'lemuen_ambience', charId: 'char_4193_lemuen', name: '蕾缪安', skin: '音律联觉/VIII · 暮星安魂曲', seal: '蕾' },
     { key: 'mortis', charId: 'char_4183_mortis', name: '若叶睦', skin: '默认服装', seal: '睦' },
     { key: 'mortis_avemujica', charId: 'char_4183_mortis', name: '若叶睦', skin: 'Ave Mujica · 提线的本我', seal: '睦' },
+    { key: 'sakiko', charId: 'char_4182_oblvns', name: '丰川祥子', skin: '默认服装', seal: '祥' },
     { key: 'sakiko_avemujica', charId: 'char_4182_oblvns', name: '丰川祥子', skin: 'Ave Mujica · 旋律的主人', seal: '祥' },
+    { key: 'clemnt', charId: 'char_4231_clemnt', name: '克莱门莎', skin: '默认服装', seal: '克' },
+    { key: 'chen3', charId: 'char_1050_chen3', name: '赤刃明霄陈', skin: '默认服装', seal: '陈' },
+    { key: 'leizi2_game', charId: 'char_1043_leizi2', name: '司霆惊蛰', skin: '成就之星/VIII · 血翼蔷薇', seal: '霆' },
     { key: 'texas2', charId: 'char_1028_texas2', name: '缄默德克萨斯', skin: '默认服装', seal: '德' },
     { key: 'muelsyse', charId: 'char_249_mlyss', name: '缪尔赛思', skin: '默认服装', seal: '缪' },
     { key: 'haruka', charId: 'char_4202_haruka', name: '遥', skin: '默认服装', seal: '遥' },
     { key: 'haruka_iteration', charId: 'char_4202_haruka', name: '遥', skin: '命途迭代/VI · 常世之幻', seal: '遥' },
+    { key: 'makoto', charId: 'char_4217_makoto', name: '结城理', skin: '默认服装', seal: '理' },
     { key: 'makoto_p3r', charId: 'char_4217_makoto', name: '结城理', skin: '女神异闻录３ Reload · 见证荣光', seal: '理' },
   ].map((c) => ({ ...c, lines: LINES[c.name] }));
 

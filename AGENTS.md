@@ -4,7 +4,7 @@
 
 ## 一句话
 
-`~/claude/dusk-pet` 是一个 Electron 做的 macOS 桌宠：用明日方舟官方的基建 Q 版 Spine 模型（目前 14 套形象），实时反映 Claude（Code 会话和普通对话）的状态，点开是一个纯白的工作台，显示用量百分比、会话和进程。往她身上拖文件可以交给 Claude。
+`~/claude/dusk-pet` 是一个 Electron 做的 macOS 桌宠：用明日方舟官方的基建 Q 版 Spine 模型（目前 19 套形象），实时反映 Claude（Code 会话和普通对话）的状态，点开是一个纯白的工作台，显示用量百分比、会话和进程。往她身上拖文件可以交给 Claude。
 
 ## 当前状态
 
@@ -15,7 +15,7 @@
 
 | 功能 | 说明 |
 |---|---|
-| 形象 | 14 套：夕（染尘烟）、黍（默认/春日宴/源远流长）、蕾缪安（默认/暮星安魂曲）、若叶睦（默认/提线的本我）、丰川祥子（旋律的主人）、缄默德克萨斯、缪尔赛思、遥（默认/常世之幻）、结城理（见证荣光）。右键 →「换角色」切换 |
+| 形象 | 19 套：夕（染尘烟）、黍（默认/春日宴/源远流长）、蕾缪安（默认/暮星安魂曲）、若叶睦（默认/提线的本我）、丰川祥子（默认/旋律的主人）、克莱门莎、赤刃明霄陈、司霆惊蛰（血翼蔷薇）、缄默德克萨斯、缪尔赛思、遥（默认/常世之幻）、结城理（默认/见证荣光）。右键 →「换角色…」弹出小列表（最多显示 8 行，滚轮滑动，↑↓/回车/Esc）切换；原生子菜单没法固定高度滚动，所以列表是单独的毛玻璃窗口 `src/renderer/picker.*` |
 | 状态 | 常态＝待机；处理中＝坐下 + 头顶墨点；等你确认＝互动 + 红色「!」+ 系统通知；完成＝互动 + 盖印章；拖文件经过＝互动 + 闪光 |
 | 闲逛 | 键鼠 3 分钟没动（或 Claude 和她都 20 分钟没人理）：在原位左右约 240px 内走走停停，停下时随机发呆、伸懒腰或做特殊动作；你回来她就走回原位 |
 | 离开模式 | 键鼠 10 分钟没动或锁屏：暂停动画、闲逛和对话检测 |
@@ -60,8 +60,9 @@ assets/models/<key>/ 模型（版权归鹰角，只能本地自用；已加进 .
 - **用量**：Ark-Models / 本机日志里都没有官方百分比。官方数字靠桌面版自己的记录；两次记录之间靠估算，界面上标「≈」。
 - **性能**：30 帧定时器渲染（2026-10-21 从 20 帧提上来，CPU 约多一半），不用 requestAnimationFrame；SVG 特效不用 CSS 动画（隐藏时也会按 120Hz 重绘）；ps/lsof 后台每 60 秒、面板开着时每 3 秒跑一次。
 - **加角色**：用 arknights-pet-models skill。新时装可能 Ark-Models 还没收录，可以去 HellaOrg/HellaAssets 等仓库找，用 `gh:` 写法下载。
+- **转身**：不要用 `skeleton.scaleX = -1` 翻骨架。很多模型有不继承镜像的骨骼（`NoRotationOrReflection` / `NoScaleOrReflection`，比如司霆惊蛰的脸、黍「源远流长」的头），翻骨架时这部分会朝错方向。现在是在 `spine-char.js` 的投影矩阵里左右对调，整体镜像（2026-10-26 修）。
 - **验证**：一定要在真实 Electron 里截图确认，浏览器预览只能看个大概。
-- **调试环境变量**：`DUSK_DEBUG_DIR`、`DUSK_DEBUG_STATE`、`DUSK_DEBUG_AWAY`、`DUSK_DEBUG_PROFILE`、`DUSK_DEBUG_EXEC`、`DUSK_DEBUG_MENU`（说明见 README「性能与刷新节奏」）。
+- **调试环境变量**：`DUSK_DEBUG_DIR`、`DUSK_DEBUG_STATE`、`DUSK_DEBUG_AWAY`、`DUSK_DEBUG_PROFILE`、`DUSK_DEBUG_EXEC`、`DUSK_DEBUG_MENU`、`DUSK_DEBUG_PICKER`（启动 4 秒后自动弹出换角色列表）（说明见 README「性能与刷新节奏」）。
 - **重启桌宠**：`launchctl bootout gui/$(id -u)/local.dusk-pet`，然后 `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.dusk-pet.plist`。
 
 ## 已知限制 / 可以继续做的
@@ -70,7 +71,7 @@ assets/models/<key>/ 模型（版权归鹰角，只能本地自用；已加进 .
 - 「等你确认」：批准本身没有事件。2026-10-20 改成按证据判断（同工具的 PostToolUse、SubagentStart、Bash 新子进程、日志里的结果/中断、进程退出），去掉了旧的「超过 1 分钟且动过键鼠就当已批准」——它会在你没看到提示、正忙别的事时误判成处理中。还剩的盲区：批准后跑得很久、又不是 Bash 或 Agent 的工具（比如很慢的 MCP 调用），要等它跑完才切回处理中。权限请求在桌面版里是否真的触发 `PermissionRequest` 钩子，只从 Claude Code 程序代码里确认过，模拟测试全过，但还没有用真实弹窗实测过。
 - 对话识别的阈值只用一次实测标定过；没测过「扩展思考」模式的回复。
 - 用量估算在官方数据过时、又有大量网页版或手机端对话时会偏低。
-- 闲逛过的角色台词、印章字都在 `characters.js`，加新角色时记得写一套原创台词（状态台词不要照搬游戏语音）；点击台词（poke 单击、combo 连点）用户要游戏原台词：给新角色在 CHARACTERS 里填 `charId`，再跑 `node scripts/voices.js` 重新生成 `assets/voices.js`（本地文件，已 gitignore，绝不能提交），characters.js 里仍要写一套 poke/combo 作为没有台词文件时的后备。
+- 台词在 `characters.js`。**新角色不写原创台词**（2026-10-26 用户要求）：有游戏原台词就用原台词——在 CHARACTERS 里填 `charId`，再跑 `node scripts/voices.js` 重新生成 `assets/voices.js`（点击台词：poke 单击、combo 连点；本地文件，已 gitignore，绝不能提交）；没有就算了，不在 LINES 里加条目，状态变化时她就不说话。旧角色已有的台词保留。
 
 ## 用户偏好
 

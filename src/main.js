@@ -35,6 +35,7 @@ let config = loadConfig();
 let pet = null;
 let panel = null;
 let bubble = null;
+let picker = null;
 let tray = null;
 let previewState = process.env.DUSK_DEBUG_STATE || null; // 右键菜单里手动预览的形象（调试时可用环境变量指定）
 let lastInteraction = Date.now();
@@ -254,6 +255,42 @@ function togglePanel(force) {
   panel.show();
   panel.focus();
   tick({ heavy: true }); // 打开时马上刷新会话、进程和用量
+}
+
+// —— 换角色列表 ——
+const PICKER_W = 296;
+const PICKER_ROW = 24;
+const PICKER_ROWS = 8; // 最多显示 8 行，其余滚动
+
+function showPicker() {
+  if (!picker || picker.isDestroyed()) {
+    picker = new BrowserWindow({
+      width: PICKER_W, height: 100, show: false,
+      frame: false, resizable: false, movable: false, hasShadow: true,
+      alwaysOnTop: true, skipTaskbar: true, fullscreenable: false, acceptFirstMouse: true,
+      vibrancy: 'menu', visualEffectState: 'active', roundedCorners: true,
+      backgroundColor: '#00000000',
+      webPreferences: PRELOAD,
+    });
+    picker.setAlwaysOnTop(true, 'pop-up-menu');
+    picker.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    picker.on('blur', () => picker.hide());
+    picker.loadFile(path.join(__dirname, 'renderer', 'picker.html'));
+    picker.webContents.once('did-finish-load', () => showPicker());
+    return;
+  }
+  const h = Math.min(CHARACTERS.length, PICKER_ROWS) * PICKER_ROW + 10;
+  // 像右键菜单一样从鼠标处展开，超出屏幕就往回收
+  const at = screen.getCursorScreenPoint();
+  const wa = screen.getDisplayNearestPoint(at).workArea;
+  const x = Math.min(Math.max(at.x, wa.x), wa.x + wa.width - PICKER_W);
+  const y = at.y + h > wa.y + wa.height ? Math.max(wa.y, at.y - h) : at.y;
+  picker.setBounds({ x: Math.round(x), y: Math.round(y), width: PICKER_W, height: h });
+  picker.webContents.send('picker:data', {
+    items: CHARACTERS.map((c) => ({ key: c.key, name: c.name, skin: c.skin, current: c.key === config.character })),
+  });
+  picker.show();
+  picker.focus();
 }
 
 // —— 气泡 ——
@@ -521,12 +558,8 @@ function buildMenu() {
     { label: '新建 Claude Code 会话', click: () => actions.newCodeSession() },
     { label: '继续最近的会话', click: () => actions.openClaudeApp() },
     { type: 'separator' },
-    {
-      label: '换角色',
-      submenu: CHARACTERS.map((c) => ({
-        label: `${c.name} · ${c.skin}`, type: 'radio', checked: config.character === c.key, click: () => switchCharacter(c.key),
-      })),
-    },
+    // 角色多了以后原生子菜单太长，又不能固定高度滚动，改成单独的小列表
+    { label: '换角色…', click: () => showPicker() },
     {
       label: '拖入文件时',
       submenu: [
@@ -647,6 +680,8 @@ ipcMain.on('bubble:choose', async (_e, how) => {
   if (how === 'cancel' || !paths) { hideBubble(); return; }
   say(resultText(how, await deliver(paths, how)), 4000);
 });
+ipcMain.on('picker:choose', (_e, key) => { if (picker) picker.hide(); switchCharacter(key); });
+ipcMain.on('picker:close', () => { if (picker) picker.hide(); });
 ipcMain.on('panel:close', () => togglePanel(false));
 ipcMain.on('panel:action', (_e, a) => {
   if (a === 'new') actions.newCodeSession();
@@ -678,6 +713,7 @@ app.whenReady().then(() => {
   powerMonitor.on('suspend', () => { screenLocked = true; tick(); });
   powerMonitor.on('resume', () => { screenLocked = false; tick(); });
   if (process.env.DUSK_DEBUG_DIR) debugCapture(process.env.DUSK_DEBUG_DIR);
+  if (process.env.DUSK_DEBUG_PICKER) setTimeout(showPicker, 4000); // 调试：启动后自动弹出换角色列表
   if (process.env.DUSK_DEBUG_DIR) setTimeout(() => fs.writeFileSync(path.join(process.env.DUSK_DEBUG_DIR, 'pids.json'), JSON.stringify({
     pet: pet.webContents.getOSProcessId(), bubble: bubble.webContents.getOSProcessId(), panel: panel.webContents.getOSProcessId(),
   })), 4000);

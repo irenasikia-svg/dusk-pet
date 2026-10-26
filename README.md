@@ -26,7 +26,7 @@
 
 ## 角色
 
-默认是「夕 · 0011制造/VI 染尘烟」，右键 →「换角色」可以切换：
+默认是「夕 · 0011制造/VI 染尘烟」，右键 →「换角色…」会弹出一个小列表（最多显示 8 行，用滚轮滑动，也可以用 ↑↓、回车、Esc），点一下就换：
 
 | 角色 | 服装 |
 |---|---|
@@ -34,17 +34,20 @@
 | 黍 | 默认服装、0011制造/XI · 春日宴、国家图书馆 · 源远流长 |
 | 蕾缪安 | 默认服装、音律联觉/VIII · 暮星安魂曲 |
 | 若叶睦 | 默认服装、Ave Mujica · 提线的本我 |
-| 丰川祥子 | Ave Mujica · 旋律的主人 |
+| 丰川祥子 | 默认服装、Ave Mujica · 旋律的主人 |
+| 克莱门莎 | 默认服装 |
+| 赤刃明霄陈 | 默认服装 |
+| 司霆惊蛰 | 成就之星/VIII · 血翼蔷薇 |
 | 缄默德克萨斯 | 默认服装 |
 | 缪尔赛思 | 默认服装 |
 | 遥 | 默认服装、命途迭代/VI · 常世之幻 |
-| 结城理 | 女神异闻录３ Reload · 见证荣光 |
+| 结城理 | 默认服装、女神异闻录３ Reload · 见证荣光 |
 
 每个角色有自己的台词。所有角色按同一个比例显示，体型一致；窗口大小随各自的动作范围调整，带高装饰的角色窗口会高一些。换角色时，脚下的位置不变。
 
 ## 准备模型
 
-角色模型是鹰角网络的游戏美术资源，版权归鹰角，**不包含在这个仓库里**，请自行下载到本地、仅限个人使用。需要 Python 3，下面这条命令会从 [isHarryh/Ark-Models](https://github.com/isHarryh/Ark-Models)（黍「源远流长」来自 [HellaOrg/HellaAssets](https://github.com/HellaOrg/HellaAssets)）下载全部 14 套，共约 16 MB，放进 `assets/models/<key>/`：
+角色模型是鹰角网络的游戏美术资源，版权归鹰角，**不包含在这个仓库里**，请自行下载到本地、仅限个人使用。需要 Python 3，下面这条命令会从 [isHarryh/Ark-Models](https://github.com/isHarryh/Ark-Models)（黍「源远流长」来自 [HellaOrg/HellaAssets](https://github.com/HellaOrg/HellaAssets)）下载全部 19 套，共约 21 MB，放进 `assets/models/<key>/`：
 
 ```bash
 python3 scripts/fetch_model.py \
@@ -53,13 +56,14 @@ python3 scripts/fetch_model.py \
   shu_nlc 'gh:HellaOrg/HellaAssets/spine/operator/build/build_char_2025_shu_nlc#1' \
   lemuen 4193_lemuen  lemuen_ambience '4193_lemuen_ambiencesynesthesia#7' \
   mortis 4183_mortis  mortis_avemujica '4183_mortis_avemujica#1' \
-  sakiko_avemujica '4182_oblvns_avemujica#1' \
+  sakiko 4182_oblvns  sakiko_avemujica '4182_oblvns_avemujica#1' \
+  clemnt 4231_clemnt  chen3 1050_chen3  leizi2_game '1043_leizi2_game#8' \
   texas2 1028_texas2  muelsyse 249_mlyss \
   haruka 4202_haruka  haruka_iteration '4202_haruka_iteration#6' \
-  makoto_p3r '4217_makoto_p3r#1'
+  makoto 4217_makoto  makoto_p3r '4217_makoto_p3r#1'
 ```
 
-`<key>` 要和 `src/characters.js` 里的一致；没下载的角色在「换角色」里选了会是空白。
+遇到 `HTTP Error 403: rate limit exceeded`（未登录的 GitHub 接口每小时只能调 60 次），在命令前面加上 `GH_TOKEN=$(gh auth token)` 再跑。`<key>` 要和 `src/characters.js` 里的一致；没下载的角色在「换角色」里选了会是空白。
 
 **游戏台词（可选）**：点她时说的话可以用游戏原台词。台词同样版权归鹰角、不进仓库。先把 [Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData) 的 `zh_CN/gamedata/excel/charword_table.json`（约 11 MB）下载到 `~/.cache/arknights-pet/`，再运行：
 
@@ -137,7 +141,7 @@ npm start
 - **渲染**：不用 `requestAnimationFrame`，改用定时器限帧到 30 帧（实测比 20 帧多用约一半 CPU：同一角色在处理中状态，20 帧约 13–15%，30 帧约 20–26%）。关闭了多重采样抗锯齿。状态特效不用 CSS 动画（SVG 上的 CSS 动画即使隐藏也会按 120Hz 重绘），改由同一个帧循环更新。
 - **刷新**：每 2 秒只做便宜的状态检查（钩子事件、会话日志增量、对话检测）。列进程、`lsof`、算用量和额度这些重活，后台每 60 秒做一次；面板开着时每 3 秒一次，点开面板时立刻刷新。
 - **离开模式**：暂停动画、闲逛和对话检测，状态检查改为每 10 秒一次；你回来就恢复。
-- 调试用环境变量：`DUSK_DEBUG_DIR`（截图与记录）、`DUSK_DEBUG_STATE`（强制状态）、`DUSK_DEBUG_AWAY`（强制离开模式）、`DUSK_DEBUG_PROFILE`（桌宠页 CPU 采样）、`DUSK_DEBUG_EXEC`（在桌宠页执行脚本）。
+- 调试用环境变量：`DUSK_DEBUG_DIR`（截图与记录）、`DUSK_DEBUG_STATE`（强制状态）、`DUSK_DEBUG_AWAY`（强制离开模式）、`DUSK_DEBUG_PROFILE`（桌宠页 CPU 采样）、`DUSK_DEBUG_EXEC`（在桌宠页执行脚本）、`DUSK_DEBUG_PICKER`（启动 4 秒后自动弹出换角色列表）。
 
 ## 文件
 

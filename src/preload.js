@@ -24,6 +24,10 @@ contextBridge.exposeInMainWorld('duskPet', {
   onBubble: (cb) => ipcRenderer.on('bubble:show', (_e, d) => cb(d)),
   bubbleSize: (s) => ipcRenderer.send('bubble:size', s),
   bubbleChoose: (how) => ipcRenderer.send('bubble:choose', how),
+  // 换角色列表
+  onPicker: (cb) => ipcRenderer.on('picker:data', (_e, d) => cb(d)),
+  pickCharacter: (key) => ipcRenderer.send('picker:choose', key),
+  closePicker: () => ipcRenderer.send('picker:close'),
   // 面板
   onPanelData: (cb) => ipcRenderer.on('panel:data', (_e, d) => cb(d)),
   closePanel: () => ipcRenderer.send('panel:close'),

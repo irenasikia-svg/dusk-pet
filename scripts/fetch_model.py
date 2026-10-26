@@ -26,6 +26,10 @@ def get(url, tries=4, accept=None):
             headers = {"User-Agent": "dusk-pet"}
             if accept:
                 headers["Accept"] = accept
+            # 未登录的 GitHub API 每小时只有 60 次；有令牌就带上（例如 GH_TOKEN=$(gh auth token)）
+            token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+            if token and url.startswith("https://api.github.com/"):
+                headers["Authorization"] = f"Bearer {token}"
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=60) as r:
                 return r.read()
